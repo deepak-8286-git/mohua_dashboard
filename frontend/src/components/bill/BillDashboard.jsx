@@ -8,7 +8,7 @@ const AMBER = '#E8813A'
 const GREEN = '#38B089'
 const BLUE  = '#4F9CF9'
 const RED   = '#D94F3D'
-const MUTED = '#2B4069'
+const MUTED = '#5B7FA8'
 const TT    = { backgroundColor: '#12202F', border: '1px solid #1A2A40', borderRadius: 4, fontSize: 12 }
 
 const BUCKET_COLS = [
@@ -327,10 +327,11 @@ export default function BillDashboard({ data }) {
     return out
   }, [weeks])
 
-  const [selMonth, setSelMonth] = useState(() => months[0] ?? '')
-  const [selWeek,  setSelWeek]  = useState(ALL)
-  const [selPao,   setSelPao]   = useState(ALL)
-  const [delayTab, setDelayTab] = useState('total')
+  const [selMonth,   setSelMonth]  = useState(() => months[0] ?? '')
+  const [selWeek,    setSelWeek]   = useState(ALL)
+  const [selPao,     setSelPao]    = useState(ALL)
+  const [delayTab,   setDelayTab]  = useState('total')
+  const [delayView,  setDelayView] = useState('all')  // 'all' | 'best' | 'worst'
 
   const monthWeeks = useMemo(
     () => [...weeks].reverse().filter(w => getMonth(w.period) === selMonth),
@@ -378,9 +379,29 @@ export default function BillDashboard({ data }) {
   const ebillDelayPaos  = useMemo(() => aggregateDelayPaos(activePeriod, 'ebill'),  [activePeriod])
   const totalDelayPaos  = useMemo(() => combinePaos(normalDelayPaos, ebillDelayPaos), [normalDelayPaos, ebillDelayPaos])
 
-  const chartPaos = delayTab === 'total'  ? totalDelayPaos
-                  : delayTab === 'normal' ? normalDelayPaos
-                  : ebillDelayPaos
+  const basePaos = delayTab === 'total'  ? totalDelayPaos
+                 : delayTab === 'normal' ? normalDelayPaos
+                 : ebillDelayPaos
+
+  const TOP_N = 10
+  const chartPaos = useMemo(() => {
+    const active = basePaos.filter(p => (p.total_bills_token || 0) > 0)
+    if (delayView === 'best') {
+      return [...active].sort((a, b) => {
+        const t0A = pct(a.T0_bills || 0, a.total_bills_token)
+        const t0B = pct(b.T0_bills || 0, b.total_bills_token)
+        return t0B - t0A
+      }).slice(0, TOP_N)
+    }
+    if (delayView === 'worst') {
+      return [...active].sort((a, b) => {
+        const lateA = pct((a.T4_bills||0)+(a.T5_bills||0)+(a.T5Plus_bills||0), a.total_bills_token)
+        const lateB = pct((b.T4_bills||0)+(b.T5_bills||0)+(b.T5Plus_bills||0), b.total_bills_token)
+        return lateB - lateA
+      }).slice(0, TOP_N)
+    }
+    return active
+  }, [basePaos, delayView])
 
   return (
     <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -460,24 +481,58 @@ export default function BillDashboard({ data }) {
           <div className="section-heading mb-0">
             <span className="section-label">Delay Bucket Distribution by PAO (% of bills)</span>
           </div>
-          <div className="flex gap-2">
-            {[
-              { key: 'total',  label: 'Total' },
-              { key: 'normal', label: 'Normal Bills' },
-              { key: 'ebill',  label: 'E-Bills' },
-            ].map(t => (
-              <button key={t.key} onClick={() => setDelayTab(t.key)}
-                className="px-3 py-1 rounded text-xs font-display font-semibold tracking-wide transition-all border"
-                style={{
-                  borderColor: AMBER,
-                  background: delayTab === t.key ? AMBER : 'transparent',
-                  color: delayTab === t.key ? '#0A1628' : AMBER,
-                }}>
-                {t.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Best / All / Worst toggle */}
+            <div className="flex gap-1.5">
+              {[
+                { key: 'best',  label: '🏆 Best 10',  activeColor: GREEN },
+                { key: 'all',   label: 'All PAOs',     activeColor: BLUE  },
+                { key: 'worst', label: '⚠ Worst 10',  activeColor: RED   },
+              ].map(v => (
+                <button key={v.key} onClick={() => setDelayView(v.key)}
+                  className="px-3 py-1 rounded text-xs font-display font-semibold tracking-wide transition-all border"
+                  style={{
+                    borderColor: v.activeColor,
+                    background: delayView === v.key ? v.activeColor : 'transparent',
+                    color: delayView === v.key ? '#0A1628' : v.activeColor,
+                  }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Divider */}
+            <span className="text-navy-400 text-slate-700">|</span>
+
+            {/* Normal / E-Bills / Total toggle */}
+            <div className="flex gap-1.5">
+              {[
+                { key: 'total',  label: 'Total' },
+                { key: 'normal', label: 'Normal' },
+                { key: 'ebill',  label: 'E-Bills' },
+              ].map(t => (
+                <button key={t.key} onClick={() => setDelayTab(t.key)}
+                  className="px-3 py-1 rounded text-xs font-display font-semibold tracking-wide transition-all border"
+                  style={{
+                    borderColor: AMBER,
+                    background: delayTab === t.key ? AMBER : 'transparent',
+                    color: delayTab === t.key ? '#0A1628' : AMBER,
+                  }}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+
+        {delayView !== 'all' && (
+          <p className="font-mono text-xs text-slate-600 mb-3">
+            {delayView === 'best'
+              ? `Top ${TOP_N} PAOs by T0 (same-day) closure rate`
+              : `Top ${TOP_N} PAOs by T4+ (10d+) delayed bill rate`}
+          </p>
+        )}
+
         <DelayChart paos={chartPaos} />
       </div>
 
