@@ -161,11 +161,12 @@ function EbillAdoptionChart({ paos }) {
   if (!paos.length) return <p className="text-slate-600 text-sm text-center py-8">No data</p>
 
   const barData = paos.map(p => ({
-    name:     short(p.pao_name, 32),
-    Normal:   p.normal_bills,
-    'E-Bill': p.ebill_count,
-    _pct:     p.ebill_pct,
-    _total:   p.total_bills,
+    name:        short(p.pao_name, 32),
+    Normal:      p.normal_bills,
+    'E-Bill':    p.ebill_count,
+    _ebill_pct:  p.ebill_pct,
+    _normal_pct: pct(p.normal_bills, p.total_bills),
+    _total:      p.total_bills,
   }))
 
   const CustomTick = ({ x, y, payload }) => (
@@ -188,14 +189,24 @@ function EbillAdoptionChart({ paos }) {
           ]}
           labelFormatter={(label, payload) => {
             const p = payload?.[0]?.payload
-            return `${label}  —  E-Bill: ${p?._pct ?? 0}%  |  Total: ${fmt(p?._total)}`
+            return `${label}  —  N: ${p?._normal_pct ?? 0}%  |  E: ${p?._ebill_pct ?? 0}%  |  Total: ${fmt(p?._total)}`
           }}
         />
         <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
         <Bar dataKey="Normal"   fill={MUTED} stackId="a" isAnimationActive={false} />
-        <Bar dataKey="E-Bill"   fill={GREEN} stackId="a" isAnimationActive={false}
-          label={{ position: 'right', formatter: (_, entry) => `${entry?.['_pct'] ?? ''}%`,
-                   fill: '#7A8FA8', fontSize: 10 }}
+        <Bar dataKey="E-Bill" fill={GREEN} stackId="a" isAnimationActive={false}
+          label={{
+            content: ({ x, y, width, height, index }) => {
+              const d = barData[index]
+              if (!d) return null
+              return (
+                <text x={x + width + 6} y={y + height / 2} dy={4}
+                  fill="#7A8FA8" fontSize={10} textAnchor="start">
+                  N:{d._normal_pct}% · E:{d._ebill_pct}%
+                </text>
+              )
+            }
+          }}
         />
       </BarChart>
     </ResponsiveContainer>
@@ -455,7 +466,7 @@ export default function BillDashboard({ data }) {
       <div className="grid grid-cols-5 gap-4">
         <div className="col-span-3 chart-card">
           <div className="section-heading mb-3">
-            <span className="section-label">E-Bill Adoption by PAO</span>
+            <span className="section-label">PAO wise Bill Type Distribution</span>
           </div>
           <EbillAdoptionChart paos={ebmPaos} />
         </div>
