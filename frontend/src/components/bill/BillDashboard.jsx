@@ -383,7 +383,7 @@ export default function BillDashboard({ data }) {
                  : delayTab === 'normal' ? normalDelayPaos
                  : ebillDelayPaos
 
-  const TOP_N = 10
+  const TOP_N = 3
   const chartPaos = useMemo(() => {
     const active = basePaos.filter(p => (p.total_bills_token || 0) > 0)
     if (delayView === 'best') {
@@ -485,9 +485,9 @@ export default function BillDashboard({ data }) {
             {/* Best / All / Worst toggle */}
             <div className="flex gap-1.5">
               {[
-                { key: 'best',  label: '🏆 Best 10',  activeColor: GREEN },
+                { key: 'best',  label: '🏆 Best 3',   activeColor: GREEN },
                 { key: 'all',   label: 'All PAOs',     activeColor: BLUE  },
-                { key: 'worst', label: '⚠ Worst 10',  activeColor: RED   },
+                { key: 'worst', label: '⚠ Worst 3',   activeColor: RED   },
               ].map(v => (
                 <button key={v.key} onClick={() => setDelayView(v.key)}
                   className="px-3 py-1 rounded text-xs font-display font-semibold tracking-wide transition-all border"
