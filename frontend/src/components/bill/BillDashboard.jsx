@@ -1,383 +1,295 @@
 import { useState, useMemo } from 'react'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-  LineChart, Line, CartesianGrid, Cell,
+  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 
-const AMBER   = '#E8813A'
-const GREEN   = '#38B089'
-const BLUE    = '#4F9CF9'
-const RED     = '#D94F3D'
-const TT      = { backgroundColor: '#12202F', border: '1px solid #1A2A40', borderRadius: 4, fontSize: 12 }
+const AMBER  = '#E8813A'
+const GREEN  = '#38B089'
+const BLUE   = '#4F9CF9'
+const RED    = '#D94F3D'
+const TT     = { backgroundColor: '#12202F', border: '1px solid #1A2A40', borderRadius: 4, fontSize: 12 }
 
 const BUCKET_COLS = [
-  { key: 'T0',     label: 'T0',   color: '#38B089', desc: 'Same-day (best)' },
+  { key: 'T0',     label: 'T0',   color: '#38B089', desc: 'Same-day' },
   { key: 'T1',     label: 'T1',   color: '#4F9CF9', desc: '1-2 days' },
   { key: 'T2',     label: 'T2',   color: '#B8C8DC', desc: '3-5 days' },
   { key: 'T3',     label: 'T3',   color: '#E8813A', desc: '6-10 days' },
   { key: 'T4',     label: 'T4',   color: '#F5A623', desc: '11-30 days' },
   { key: 'T5',     label: 'T5',   color: '#D94F3D', desc: '31-60 days' },
-  { key: 'T5Plus', label: 'T5+',  color: '#7B1C1C', desc: '60+ days (critical)' },
+  { key: 'T5Plus', label: 'T5+',  color: '#7B1C1C', desc: '60+ days' },
 ]
 
 function pct(n, d) { return d > 0 ? +(n / d * 100).toFixed(1) : 0 }
-function short(name) { return name?.replace(/\bMinistry\b.*/, '').trim().slice(0, 32) ?? '' }
+function fmt(n)    { return n != null ? n.toLocaleString('en-IN') : '—' }
+function fmtAmt(n) {
+  if (n == null) return '—'
+  if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`
+  if (n >= 1e5) return `₹${(n / 1e5).toFixed(2)} L`
+  return `₹${n.toLocaleString('en-IN')}`
+}
+function short(name) { return name?.slice(0, 34) ?? '' }
 
-function SectionHeading({ children }) {
+function getMonth(period) {
+  const m = period?.match(/^([A-Za-z]+)\s+[\d\s–\-]+,?\s*(\d{4})/)
+  return m ? `${m[1]} ${m[2]}` : (period?.split(' ')[0] ?? '')
+}
+
+// ── Summary card with count + amount rows ─────────────────────────────────
+function SummaryCard({ label, count, amount, countPct, amountPct, accent }) {
   return (
-    <div className="section-heading mb-3">
-      <span className="section-label">{children}</span>
+    <div className="kpi-card flex-1" style={{ borderColor: accent }}>
+      <p className="font-body text-xs font-semibold tracking-widest uppercase text-slate-500 mb-3">{label}</p>
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between">
+          <span className="font-display text-2xl font-bold leading-none" style={{ color: accent }}>
+            {fmt(count)}
+          </span>
+          {countPct != null && (
+            <span className="font-mono text-xs text-slate-500">{countPct}% of bills</span>
+          )}
+        </div>
+        <div className="flex items-baseline justify-between border-t border-navy-400 pt-2">
+          <span className="font-mono text-sm text-slate-300">{fmtAmt(amount)}</span>
+          {amountPct != null && (
+            <span className="font-mono text-xs text-slate-500">{amountPct}% of amt</span>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
 
-function KpiCard({ label, value, sub, accent }) {
+// ── Delay distribution: combines normal + ebill PAO data ─────────────────
+function combineDelayPaos(normalPaos, ebillPaos) {
+  const map = {}
+  const add = (p) => {
+    const key = p.pao_code || p.pao
+    if (!map[key]) {
+      map[key] = { pao: p.pao, pao_code: p.pao_code, total_bills_token: 0 }
+      BUCKET_COLS.forEach(b => { map[key][`${b.key}_bills`] = 0 })
+    }
+    map[key].total_bills_token += p.total_bills_token || 0
+    BUCKET_COLS.forEach(b => {
+      map[key][`${b.key}_bills`] += p[`${b.key}_bills`] || 0
+    })
+  }
+  normalPaos.forEach(add)
+  ebillPaos.forEach(add)
+  return Object.values(map)
+}
+
+// Custom tooltip showing count + % per bucket
+function DelayTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null
+  const total = payload[0]?.payload?._total ?? 0
   return (
-    <div className="kpi-card" style={{ borderColor: accent }}>
-      <p className="font-body text-xs font-semibold tracking-widest uppercase text-slate-500 mb-1">{label}</p>
-      <p className="font-display text-3xl font-bold leading-none mb-1" style={{ color: accent }}>{value}</p>
-      <p className="font-body text-xs text-slate-700">{sub}</p>
+    <div style={{ ...TT, padding: '10px 12px', minWidth: 200 }}>
+      <p className="font-body text-xs font-semibold text-slate-300 mb-2 truncate max-w-[220px]">{label}</p>
+      <p className="font-mono text-xs text-slate-500 mb-2">Total bills: {fmt(total)}</p>
+      {payload.map(p => (
+        <div key={p.dataKey} className="flex justify-between gap-6 text-xs font-mono">
+          <span style={{ color: p.fill }}>{p.dataKey}</span>
+          <span className="text-slate-300">
+            {fmt(p.payload[`_cnt_${p.dataKey}`])} bills &nbsp;({p.value}%)
+          </span>
+        </div>
+      ))}
     </div>
   )
 }
 
-// ── Performance scoring ─────────────────────────────────────────────────────
-function score(pao) {
-  const token = pao.total_bills_token || 0
-  if (!token) return 0
-  const t0  = pao.T0_bills  || 0
-  const t4  = pao.T4_bills  || 0
-  const t5  = pao.T5_bills  || 0
-  const t5p = pao.T5Plus_bills || 0
-  // +1 point per % of T0, -0.5 per % of T4+
-  const t0Rate   = pct(t0, token)
-  const lateRate = pct(t4 + t5 + t5p, token)
-  return +(t0Rate - lateRate * 0.5).toFixed(1)
-}
-
-function perfLabel(s) {
-  if (s >= 70)  return { text: 'Excellent', color: '#38B089' }
-  if (s >= 40)  return { text: 'Good',      color: '#4F9CF9' }
-  if (s >= 10)  return { text: 'Moderate',  color: '#E8813A' }
-  return               { text: 'Poor',      color: '#D94F3D' }
-}
-
-// ── Sub-component: PAO Performance Leaderboard ─────────────────────────────
-function PaoLeaderboard({ paos, type }) {
-  const scored = useMemo(() => {
-    return paos
-      .filter(p => p.total_bills_token > 0)
+function DelayChart({ paos }) {
+  const barData = useMemo(() => {
+    if (!paos.length) return []
+    return [...paos]
+      .filter(p => (p.total_bills_token || 0) > 0)
       .map(p => {
-        const token   = p.total_bills_token
-        const t0Rate  = pct(p.T0_bills, token)
-        const lateRate = pct((p.T4_bills||0) + (p.T5_bills||0) + (p.T5Plus_bills||0), token)
-        const closeRate = pct(p.closed, token)
-        const s = score(p)
-        const perf = perfLabel(s)
-        return { ...p, t0Rate, lateRate, closeRate, score: s, perf }
-      })
-      .sort((a, b) => b.score - a.score)
-  }, [paos])
-
-  return (
-    <div className="overflow-x-auto rounded border border-navy-400">
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-navy-400 bg-navy-800">
-            <th className="px-3 py-2 text-left text-slate-500 uppercase tracking-wide w-6">#</th>
-            <th className="px-3 py-2 text-left text-slate-500 uppercase tracking-wide">PAO</th>
-            <th className="px-3 py-2 text-right text-slate-500 uppercase tracking-wide">Token</th>
-            <th className="px-3 py-2 text-right text-slate-500 uppercase tracking-wide">Closed</th>
-            <th className="px-3 py-2 text-right text-green-400 uppercase tracking-wide">T0 %</th>
-            <th className="px-3 py-2 text-right text-red-400 uppercase tracking-wide">T4+ %</th>
-            <th className="px-3 py-2 text-right text-slate-500 uppercase tracking-wide">Close %</th>
-            <th className="px-3 py-2 text-center text-slate-500 uppercase tracking-wide">Rating</th>
-          </tr>
-        </thead>
-        <tbody>
-          {scored.map((p, i) => (
-            <tr key={p.pao_code} className="border-b border-navy-400 hover:bg-navy-600 transition-colors">
-              <td className="px-3 py-2 font-mono text-slate-600 text-center">{i + 1}</td>
-              <td className="px-3 py-2 text-slate-200 max-w-[280px]">
-                <span className="block truncate" title={p.pao}>{p.pao}</span>
-                <span className="text-slate-600 font-mono">{p.pao_code}</span>
-              </td>
-              <td className="px-3 py-2 text-right font-mono text-slate-400">{p.total_bills_token}</td>
-              <td className="px-3 py-2 text-right font-mono text-slate-400">{p.closed}</td>
-              <td className="px-3 py-2 text-right font-mono font-semibold" style={{ color: GREEN }}>{p.t0Rate}%</td>
-              <td className="px-3 py-2 text-right font-mono" style={{ color: p.lateRate > 10 ? RED : '#5A7090' }}>{p.lateRate}%</td>
-              <td className="px-3 py-2 text-right font-mono text-slate-400">{p.closeRate}%</td>
-              <td className="px-3 py-2 text-center">
-                <span className="px-2 py-0.5 rounded-full text-xs font-semibold"
-                  style={{ color: p.perf.color, background: p.perf.color + '22' }}>
-                  {p.perf.text}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-// ── Sub-component: Delay Distribution Chart ─────────────────────────────────
-function DelayDistribution({ paos }) {
-  const barData = useMemo(() =>
-    paos
-      .filter(p => p.total_bills_token > 0)
-      .map(p => {
-        const token = p.total_bills_token
-        const entry = { pao: short(p.pao) }
-        BUCKET_COLS.forEach(b => { entry[b.label] = pct(p[`${b.key}_bills`] || 0, token) })
+        const total = p.total_bills_token || 0
+        const entry = { pao: short(p.pao), _total: total }
+        BUCKET_COLS.forEach(b => {
+          const cnt = p[`${b.key}_bills`] || 0
+          entry[b.label]             = pct(cnt, total)
+          entry[`_cnt_${b.label}`]   = cnt
+        })
         return entry
       })
-      .sort((a, b) => (b['T0'] || 0) - (a['T0'] || 0)),
-  [paos])
+      .sort((a, b) => (b['T0'] || 0) - (a['T0'] || 0))
+  }, [paos])
 
-  if (!barData.length) return null
-
-  return (
-    <div className="chart-card">
-      <SectionHeading>Delay Bucket Distribution by PAO (% of bills)</SectionHeading>
-      <ResponsiveContainer width="100%" height={Math.max(250, barData.length * 32)}>
-        <BarChart data={barData} layout="vertical" margin={{ top: 4, right: 16, bottom: 0, left: 220 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" horizontal={false} />
-          <XAxis type="number" tickFormatter={v => `${v}%`} tick={{ fill: '#7A8FA8', fontSize: 11 }}
-            axisLine={false} tickLine={false} domain={[0, 100]} />
-          <YAxis dataKey="pao" type="category" tick={{ fill: '#B8C8DC', fontSize: 10 }}
-            axisLine={false} tickLine={false} width={220} />
-          <Tooltip contentStyle={TT} formatter={(v, n) => [`${v}%`, n]} />
-          <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
-          {BUCKET_COLS.map(b => (
-            <Bar key={b.key} dataKey={b.label} name={`${b.label} (${b.desc})`}
-              fill={b.color} stackId="a" isAnimationActive={false} />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+  if (!barData.length) return (
+    <p className="text-slate-600 text-sm text-center py-8">No data for this selection</p>
   )
-}
-
-// ── Sub-component: T0 Rate Trend ─────────────────────────────────────────────
-function T0Trend({ weeks, type }) {
-  const data = useMemo(() => weeks.map(w => {
-    const paos = (type === 'normal' ? w.delay_normal : w.delay_ebill)?.paos ?? []
-    const totalToken = paos.reduce((s, p) => s + (p.total_bills_token || 0), 0)
-    const totalT0    = paos.reduce((s, p) => s + (p.T0_bills || 0), 0)
-    const totalLate  = paos.reduce((s, p) => s + ((p.T4_bills||0) + (p.T5_bills||0) + (p.T5Plus_bills||0)), 0)
-    return {
-      week: w.period.split(',')[0].replace('April ', 'Apr ').replace('May ', 'May '),
-      'T0 %': pct(totalT0, totalToken),
-      'T4+ %': pct(totalLate, totalToken),
-    }
-  }), [weeks, type])
 
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={data} margin={{ top: 8, right: 16, bottom: 30, left: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" />
-        <XAxis dataKey="week" tick={{ fill: '#7A8FA8', fontSize: 9 }} angle={-35} textAnchor="end"
-          axisLine={false} tickLine={false} />
-        <YAxis tickFormatter={v => `${v}%`} tick={{ fill: '#7A8FA8', fontSize: 11 }}
-          axisLine={false} tickLine={false} />
-        <Tooltip contentStyle={TT} formatter={v => `${v}%`} />
-        <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
-        <Line type="monotone" dataKey="T0 %" stroke={GREEN} strokeWidth={2.5}
-          dot={{ r: 4, fill: GREEN, stroke: '#111C2D', strokeWidth: 2 }} />
-        <Line type="monotone" dataKey="T4+ %" stroke={RED} strokeWidth={2} strokeDasharray="4 3"
-          dot={{ r: 4, fill: RED, stroke: '#111C2D', strokeWidth: 2 }} />
-      </LineChart>
+    <ResponsiveContainer width="100%" height={Math.max(260, barData.length * 34)}>
+      <BarChart data={barData} layout="vertical" margin={{ top: 4, right: 20, bottom: 0, left: 230 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" horizontal={false} />
+        <XAxis type="number" tickFormatter={v => `${v}%`} tick={{ fill: '#7A8FA8', fontSize: 11 }}
+          axisLine={false} tickLine={false} domain={[0, 100]} />
+        <YAxis dataKey="pao" type="category" tick={{ fill: '#B8C8DC', fontSize: 10 }}
+          axisLine={false} tickLine={false} width={230} />
+        <Tooltip content={<DelayTooltip />} />
+        <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }}
+          formatter={(val) => {
+            const b = BUCKET_COLS.find(b => b.label === val)
+            return b ? `${val} (${b.desc})` : val
+          }} />
+        {BUCKET_COLS.map(b => (
+          <Bar key={b.key} dataKey={b.label} fill={b.color} stackId="a" isAnimationActive={false} />
+        ))}
+      </BarChart>
     </ResponsiveContainer>
   )
 }
 
-// ── Main Dashboard ───────────────────────────────────────────────────────────
+// ── Main dashboard ────────────────────────────────────────────────────────
 export default function BillDashboard({ data }) {
   const weeks = useMemo(() => data?.weeks ?? [], [data])
-  const weekLabels = useMemo(() => weeks.map(w => w.period), [weeks])
-  const [selWeek, setSelWeek] = useState(weekLabels[weekLabels.length - 1] ?? '')
-  const [delayTab, setDelayTab] = useState('normal')
+
+  // Month list derived from week periods
+  const months = useMemo(() => {
+    const seen = new Set()
+    const out = []
+    ;[...weeks].reverse().forEach(w => {
+      const m = getMonth(w.period)
+      if (!seen.has(m)) { seen.add(m); out.push(m) }
+    })
+    return out
+  }, [weeks])
+
+  const [selMonth, setSelMonth] = useState(() => months[0] ?? '')
+  const [delayTab, setDelayTab]  = useState('total')
+
+  // Filter weeks to selected month
+  const monthWeeks = useMemo(
+    () => [...weeks].reverse().filter(w => getMonth(w.period) === selMonth),
+    [weeks, selMonth]
+  )
+
+  const weekLabels = useMemo(() => monthWeeks.map(w => w.period), [monthWeeks])
+  const [selWeek, setSelWeek] = useState(() => weekLabels[0] ?? '')
+
+  // Reset week when month changes
+  const handleMonthChange = (m) => {
+    setSelMonth(m)
+    const newWeeks = [...weeks].reverse().filter(w => getMonth(w.period) === m)
+    setSelWeek(newWeeks[0]?.period ?? '')
+  }
 
   const week = useMemo(() => weeks.find(w => w.period === selWeek), [weeks, selWeek])
 
-  // ── EBM aggregates ────────────────────────────────────────────────────────
-  const ebmPaos   = week?.ebm?.paos ?? []
-  const ebmTotals = useMemo(() => ({
-    totalBills:  ebmPaos.reduce((s, p) => s + (p.total_bills  ?? 0), 0),
-    ebillCount:  ebmPaos.reduce((s, p) => s + (p.ebill_count  ?? 0), 0),
-    totalAmount: ebmPaos.reduce((s, p) => s + (p.total_amount ?? 0), 0),
-    ebillAmount: ebmPaos.reduce((s, p) => s + (p.ebill_amount ?? 0), 0),
-  }), [ebmPaos])
-  const ebillPctCount  = pct(ebmTotals.ebillCount,  ebmTotals.totalBills)
-  const ebillPctAmount = pct(ebmTotals.ebillAmount, ebmTotals.totalAmount)
-
-  const ebmBarData = useMemo(() =>
-    [...ebmPaos]
-      .sort((a, b) => (b.pct_ebill_count ?? 0) - (a.pct_ebill_count ?? 0))
-      .map(p => ({
-        name:           short(p.pao_name),
-        'Normal Bills': p.normal_bills  ?? 0,
-        'E-Bills':      p.ebill_count   ?? 0,
-        'E-Bill %':     p.pct_ebill_count ?? 0,
-      })),
-  [ebmPaos])
-
-  const ebmTrend = useMemo(() => weeks.map(w => {
-    const paos  = w.ebm?.paos ?? []
-    const total = paos.reduce((s, p) => s + (p.total_bills ?? 0), 0)
-    const ebill = paos.reduce((s, p) => s + (p.ebill_count ?? 0), 0)
+  // ── EBM aggregates ──────────────────────────────────────────────────────
+  const ebmPaos = week?.ebm?.paos ?? []
+  const totals  = useMemo(() => {
+    const totalBills  = ebmPaos.reduce((s, p) => s + (p.total_bills  ?? 0), 0)
+    const totalAmount = ebmPaos.reduce((s, p) => s + (p.total_amount ?? 0), 0)
+    const normalBills  = ebmPaos.reduce((s, p) => s + (p.normal_bills  ?? 0), 0)
+    const normalAmount = ebmPaos.reduce((s, p) => s + (p.normal_amount ?? 0), 0)
+    const ebillCount  = ebmPaos.reduce((s, p) => s + (p.ebill_count  ?? 0), 0)
+    const ebillAmount = ebmPaos.reduce((s, p) => s + (p.ebill_amount ?? 0), 0)
     return {
-      week: w.period.split(',')[0].replace('April ', 'Apr ').replace('May ', 'May '),
-      'E-Bill %': pct(ebill, total),
+      totalBills, totalAmount,
+      normalBills, normalAmount,
+      ebillCount, ebillAmount,
+      normalBillPct:  pct(normalBills, totalBills),
+      normalAmtPct:   pct(normalAmount, totalAmount),
+      ebillBillPct:   pct(ebillCount, totalBills),
+      ebillAmtPct:    pct(ebillAmount, totalAmount),
     }
-  }), [weeks])
+  }, [ebmPaos])
 
-  // ── Delay aggregates ──────────────────────────────────────────────────────
-  const delayData  = delayTab === 'normal' ? week?.delay_normal : week?.delay_ebill
-  const delayPaos  = delayData?.paos ?? []
-  const delayTotals = useMemo(() => {
-    const token  = delayPaos.reduce((s, p) => s + (p.total_bills_token ?? 0), 0)
-    const closed = delayPaos.reduce((s, p) => s + (p.closed  ?? 0), 0)
-    const t0     = delayPaos.reduce((s, p) => s + (p.T0_bills ?? 0), 0)
-    const late   = delayPaos.reduce((s, p) => s + ((p.T4_bills||0) + (p.T5_bills||0) + (p.T5Plus_bills||0)), 0)
-    const t5p    = delayPaos.reduce((s, p) => s + (p.T5Plus_bills ?? 0), 0)
-    return { token, closed, t0, late, t5p,
-      t0Rate:    pct(t0, token),
-      lateRate:  pct(late, token),
-      closeRate: pct(closed, token) }
-  }, [delayPaos])
+  // ── Delay PAOs by tab ───────────────────────────────────────────────────
+  const normalDelayPaos = week?.delay_normal?.paos ?? []
+  const ebillDelayPaos  = week?.delay_ebill?.paos  ?? []
+  const totalDelayPaos  = useMemo(
+    () => combineDelayPaos(normalDelayPaos, ebillDelayPaos),
+    [normalDelayPaos, ebillDelayPaos]
+  )
+
+  const activePaos = delayTab === 'total'  ? totalDelayPaos
+                   : delayTab === 'normal' ? normalDelayPaos
+                   : ebillDelayPaos
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-8">
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
 
-      {/* Week selector */}
-      <div className="flex items-center gap-4">
-        <select
-          value={selWeek}
-          onChange={e => setSelWeek(e.target.value)}
-          className="bg-navy-600 border border-navy-400 text-slate-100 text-sm rounded px-3 py-1.5 font-body outline-none"
-        >
-          {[...weekLabels].reverse().map(w => <option key={w}>{w}</option>)}
-        </select>
-        <span className="text-xs text-slate-600 font-mono">
-          Period: {week?.ebm?.period ?? week?.delay_normal?.period ?? selWeek}
-        </span>
+      {/* ── Filters ────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500 font-mono uppercase tracking-wide">Month</span>
+          <select
+            value={selMonth}
+            onChange={e => handleMonthChange(e.target.value)}
+            className="bg-navy-600 border border-navy-400 text-slate-100 text-sm rounded px-3 py-1.5 font-body outline-none"
+          >
+            {months.map(m => <option key={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-500 font-mono uppercase tracking-wide">Week</span>
+          <select
+            value={selWeek}
+            onChange={e => setSelWeek(e.target.value)}
+            className="bg-navy-600 border border-navy-400 text-slate-100 text-sm rounded px-3 py-1.5 font-body outline-none"
+          >
+            {weekLabels.map(w => <option key={w}>{w}</option>)}
+          </select>
+        </div>
       </div>
 
-      {/* ─── E-Bill Adoption ─────────────────────────────────────────────── */}
-      <section>
-        <SectionHeading>E-Bill Adoption (EBM-01)</SectionHeading>
+      {/* ── Summary cards ───────────────────────────────────────────────── */}
+      <div className="flex gap-4">
+        <SummaryCard
+          label="Total Bills"
+          count={totals.totalBills}
+          amount={totals.totalAmount}
+          accent={BLUE}
+        />
+        <SummaryCard
+          label="Normal Bills"
+          count={totals.normalBills}
+          amount={totals.normalAmount}
+          countPct={totals.normalBillPct}
+          amountPct={totals.normalAmtPct}
+          accent={AMBER}
+        />
+        <SummaryCard
+          label="E-Bills"
+          count={totals.ebillCount}
+          amount={totals.ebillAmount}
+          countPct={totals.ebillBillPct}
+          amountPct={totals.ebillAmtPct}
+          accent={GREEN}
+        />
+      </div>
 
-        <div className="grid grid-cols-4 gap-3 mb-5">
-          <KpiCard label="Total Bills"       value={ebmTotals.totalBills.toLocaleString()} sub="Normal + E-Bill" accent={BLUE} />
-          <KpiCard label="E-Bills"           value={ebmTotals.ebillCount.toLocaleString()} sub="Electronic bills" accent={GREEN} />
-          <KpiCard label="E-Bill % (Count)"  value={`${ebillPctCount}%`}  sub="Share of bill count" accent={AMBER} />
-          <KpiCard label="E-Bill % (Amount)" value={`${ebillPctAmount}%`} sub="Share of bill amount" accent={AMBER} />
-        </div>
-
-        <div className="grid grid-cols-5 gap-4">
-          <div className="col-span-3 chart-card">
-            <p className="section-label mb-3">PAO-wise E-Bill % (sorted by adoption)</p>
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={ebmBarData} margin={{ top: 4, right: 32, bottom: 20, left: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" />
-                <XAxis dataKey="name" tick={{ fill: '#B8C8DC', fontSize: 9 }} angle={-35}
-                  textAnchor="end" axisLine={false} tickLine={false} interval={0} />
-                <YAxis tick={{ fill: '#7A8FA8', fontSize: 11 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT} />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
-                <Bar dataKey="Normal Bills" fill="#2B4069" stackId="a" />
-                <Bar dataKey="E-Bills" fill={GREEN} stackId="a" radius={[2,2,0,0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="col-span-2 chart-card">
-            <p className="section-label mb-3">E-Bill % Trend (week-on-week)</p>
-            <ResponsiveContainer width="100%" height={280}>
-              <LineChart data={ebmTrend} margin={{ top: 8, right: 16, bottom: 30, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" />
-                <XAxis dataKey="week" tick={{ fill: '#7A8FA8', fontSize: 9 }} angle={-35}
-                  textAnchor="end" axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={v => `${v}%`} tick={{ fill: '#7A8FA8', fontSize: 11 }}
-                  axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={TT} formatter={v => `${v}%`} />
-                <Line type="monotone" dataKey="E-Bill %" stroke={GREEN} strokeWidth={2.5}
-                  dot={{ r: 5, fill: GREEN, strokeWidth: 2, stroke: '#111C2D' }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── PAO Delay Aging ─────────────────────────────────────────────── */}
-      <section>
+      {/* ── Delay distribution ──────────────────────────────────────────── */}
+      <div className="chart-card">
         <div className="flex items-center justify-between mb-4">
-          <SectionHeading>PAO Delay Aging & Performance (TM-02)</SectionHeading>
+          <div className="section-heading mb-0">
+            <span className="section-label">Delay Bucket Distribution by PAO (% of bills)</span>
+          </div>
           <div className="flex gap-2">
-            {['normal', 'ebill'].map(t => (
-              <button key={t} onClick={() => setDelayTab(t)}
-                className="px-4 py-1.5 rounded text-xs font-display font-semibold tracking-wide transition-all border"
+            {[
+              { key: 'total',  label: 'Total' },
+              { key: 'normal', label: 'Normal Bills' },
+              { key: 'ebill',  label: 'E-Bills' },
+            ].map(t => (
+              <button key={t.key} onClick={() => setDelayTab(t.key)}
+                className="px-3 py-1 rounded text-xs font-display font-semibold tracking-wide transition-all border"
                 style={{
                   borderColor: AMBER,
-                  background: delayTab === t ? AMBER : 'transparent',
-                  color: delayTab === t ? '#0A1628' : AMBER,
+                  background: delayTab === t.key ? AMBER : 'transparent',
+                  color: delayTab === t.key ? '#0A1628' : AMBER,
                 }}>
-                {t === 'normal' ? 'Normal Bills' : 'E-Bills'}
+                {t.label}
               </button>
             ))}
           </div>
         </div>
+        <DelayChart paos={activePaos} />
+      </div>
 
-        {/* Aggregate KPIs */}
-        <div className="grid grid-cols-5 gap-3 mb-5">
-          <KpiCard label="Total Token"   value={delayTotals.token.toLocaleString()} sub="Bills in system" accent={BLUE} />
-          <KpiCard label="Closed"        value={delayTotals.closed.toLocaleString()} sub={`${delayTotals.closeRate}% close rate`} accent={GREEN} />
-          <KpiCard label="T0 (Same-day)" value={`${delayTotals.t0Rate}%`} sub={`${delayTotals.t0} bills settled same-day`} accent={GREEN} />
-          <KpiCard label="T4+ (Delayed)" value={`${delayTotals.lateRate}%`} sub="Cleared after 10 days" accent={delayTotals.lateRate > 10 ? RED : AMBER} />
-          <KpiCard label="T5+ Critical"  value={delayTotals.t5p.toLocaleString()} sub="Delayed 60+ days" accent={RED} />
-        </div>
-
-        {/* Trend + Distribution grid */}
-        <div className="grid grid-cols-5 gap-4 mb-5">
-          <div className="col-span-2 chart-card">
-            <p className="section-label mb-3">T0 vs T4+ Rate — Week Trend</p>
-            <T0Trend weeks={weeks} type={delayTab} />
-            <p className="text-xs text-slate-600 mt-1">
-              Green = same-day closure · Dashed red = delayed 10d+
-            </p>
-          </div>
-          <div className="col-span-3">
-            <DelayDistribution paos={delayPaos} />
-          </div>
-        </div>
-
-        {/* PAO Leaderboard */}
-        <div>
-          <p className="section-label mb-2">
-            PAO Performance Ranking
-            <span className="ml-2 text-slate-600 font-normal lowercase">
-              — ranked by T0 closure rate minus penalty for late bills
-            </span>
-          </p>
-          <PaoLeaderboard paos={delayPaos} type={delayTab} />
-          <div className="flex gap-6 mt-3 text-xs text-slate-600">
-            {[
-              { text: 'Excellent', color: '#38B089', cond: 'Score ≥ 70' },
-              { text: 'Good',      color: '#4F9CF9', cond: 'Score 40–70' },
-              { text: 'Moderate',  color: '#E8813A', cond: 'Score 10–40' },
-              { text: 'Poor',      color: '#D94F3D', cond: 'Score < 10' },
-            ].map(r => (
-              <span key={r.text} className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: r.color }} />
-                <span style={{ color: r.color }}>{r.text}</span>
-                <span className="text-slate-700">{r.cond}</span>
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
     </div>
   )
 }

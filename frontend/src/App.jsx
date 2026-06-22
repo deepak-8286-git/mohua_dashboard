@@ -23,7 +23,7 @@ function ErrorMsg({ msg }) {
 }
 
 function Dashboard({ onLogout }) {
-  const [active, setActive] = useState('iaw')
+  const [active, setActive] = useState('bill')
   const iaw  = useIAW()
   const bill = useBill()
   useAutoRefresh()
