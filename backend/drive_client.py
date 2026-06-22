@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import threading
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -18,23 +19,23 @@ _CRED_FILE = os.path.join(
 )
 
 _service = None
+_service_lock = threading.Lock()
 
 
 def get_service():
     global _service
     if _service is not None:
         return _service
-
-    creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
-    if creds_json:
-        # Railway / production: credentials stored as env var (raw JSON string)
-        info = json.loads(creds_json)
-        creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
-    else:
-        # Local development: read from file
-        creds = service_account.Credentials.from_service_account_file(_CRED_FILE, scopes=SCOPES)
-
-    _service = build("drive", "v3", credentials=creds)
+    with _service_lock:
+        if _service is not None:
+            return _service
+        creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+        if creds_json:
+            info = json.loads(creds_json)
+            creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+        else:
+            creds = service_account.Credentials.from_service_account_file(_CRED_FILE, scopes=SCOPES)
+        _service = build("drive", "v3", credentials=creds)
     return _service
 
 

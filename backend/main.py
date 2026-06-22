@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -31,8 +32,11 @@ REFRESH_INTERVAL = 300  # seconds
 def refresh_cache():
     log.info("Refreshing Drive data…")
     try:
-        cache["iaw"] = parse_iaw()
-        cache["bill"] = parse_bill()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f_iaw  = pool.submit(parse_iaw)
+            f_bill = pool.submit(parse_bill)
+            cache["iaw"]  = f_iaw.result()
+            cache["bill"] = f_bill.result()
         cache["last_updated"] = datetime.now(timezone.utc).isoformat()
         cache["error"] = None
         log.info("Drive data refreshed at %s", cache["last_updated"])

@@ -1,5 +1,6 @@
 import io
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import openpyxl
 from drive_client import list_folders, list_spreadsheets, download_xlsx
 
@@ -154,6 +155,42 @@ def _parse_delay(wb: openpyxl.Workbook, sanction_type: str) -> dict:
     return {"period": period, "sanction_type": sanction_type, "paos": paos}
 
 
+def _process_week(wf):
+    files = list_spreadsheets(wf["id"])
+    if not files:
+        return None
+
+    week_entry = {
+        "period":       wf["name"],
+        "ebm":          None,
+        "delay_normal": None,
+        "delay_ebill":  None,
+    }
+
+    def _fetch_and_parse(xf):
+        name_lower = xf["name"].lower()
+        if "pc-04" in name_lower or "e-payment" in name_lower or "epayment" in name_lower:
+            return None
+        try:
+            content = download_xlsx(xf["id"], xf["mimeType"])
+            wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
+        except Exception:
+            return None
+        if "ebm" in name_lower or "ebill count" in name_lower:
+            return ("ebm", _parse_ebm(wb))
+        elif "tm-02" in name_lower or "pao delay" in name_lower:
+            key = "delay_ebill" if "ebill" in name_lower else "delay_normal"
+            return (key, _parse_delay(wb, "ebill" if "ebill" in name_lower else "normal"))
+        return None
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        for result in pool.map(_fetch_and_parse, files):
+            if result:
+                week_entry[result[0]] = result[1]
+
+    return week_entry
+
+
 def parse_bill() -> dict:
     """Parse all weeks from Bill Monitoring Drive folder.
 
@@ -165,41 +202,24 @@ def parse_bill() -> dict:
     PC-04 is intentionally excluded.
     """
     month_folders = list_folders(BILL_FOLDER_ID)
-    all_weeks = []
 
+    week_folders_all = []
     for mf in sorted(month_folders, key=lambda f: f["name"]):
-        week_folders = list_folders(mf["id"])
-        for wf in sorted(week_folders, key=lambda f: f["name"]):
-            files = list_spreadsheets(wf["id"])
-            if not files:
-                continue
+        for wf in sorted(list_folders(mf["id"]), key=lambda f: f["name"]):
+            week_folders_all.append(wf)
 
-            week_entry = {
-                "period":       wf["name"],
-                "ebm":          None,
-                "delay_normal": None,
-                "delay_ebill":  None,
-            }
+    all_weeks = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = {pool.submit(_process_week, wf): wf["name"] for wf in week_folders_all}
+        results = {}
+        for future in as_completed(futures):
+            name = futures[future]
+            entry = future.result()
+            if entry:
+                results[name] = entry
 
-            for xf in files:
-                name_lower = xf["name"].lower()
-                # Skip PC-04
-                if "pc-04" in name_lower or "e-payment" in name_lower or "epayment" in name_lower:
-                    continue
-                try:
-                    content = download_xlsx(xf["id"], xf["mimeType"])
-                    wb = openpyxl.load_workbook(io.BytesIO(content), data_only=True)
-                except Exception:
-                    continue
-
-                if "ebm" in name_lower or "ebill count" in name_lower:
-                    week_entry["ebm"] = _parse_ebm(wb)
-                elif "tm-02" in name_lower or "pao delay" in name_lower:
-                    if "ebill" in name_lower:
-                        week_entry["delay_ebill"] = _parse_delay(wb, "ebill")
-                    else:
-                        week_entry["delay_normal"] = _parse_delay(wb, "normal")
-
-            all_weeks.append(week_entry)
+    for wf in week_folders_all:
+        if wf["name"] in results:
+            all_weeks.append(results[wf["name"]])
 
     return {"weeks": all_weeks}
