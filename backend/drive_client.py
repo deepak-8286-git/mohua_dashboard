@@ -18,25 +18,20 @@ _CRED_FILE = os.path.join(
     "cosmic-octane-499906-q0-88ac81084d22.json"
 )
 
-_service = None
-_service_lock = threading.Lock()
+_thread_local = threading.local()
 
 
 def get_service():
-    global _service
-    if _service is not None:
-        return _service
-    with _service_lock:
-        if _service is not None:
-            return _service
+    """Return a Drive service instance bound to the current thread."""
+    if not hasattr(_thread_local, "service"):
         creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
         if creds_json:
             info = json.loads(creds_json)
             creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
         else:
             creds = service_account.Credentials.from_service_account_file(_CRED_FILE, scopes=SCOPES)
-        _service = build("drive", "v3", credentials=creds)
-    return _service
+        _thread_local.service = build("drive", "v3", credentials=creds)
+    return _thread_local.service
 
 
 def list_children(folder_id: str, mime_filter: str = None) -> list:
