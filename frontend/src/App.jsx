@@ -36,39 +36,51 @@ function Dashboard({ onLogout }) {
     <div className="h-screen flex flex-col overflow-hidden bg-navy">
 
       {/* ── Top header ───────────────────────────────────────────────── */}
-      <header className="px-6 pt-5 pb-3 bg-navy-800 border-b border-navy-400 shrink-0">
-        <div className="flex justify-between items-start">
+      <header className="px-6 pt-4 pb-3 bg-navy-800 border-b border-navy-400 shrink-0 relative">
+
+        {/* Sign out + last updated — top right */}
+        <div className="absolute top-4 right-6 flex items-center gap-4">
+          {lastUpdated && (
+            <span className="font-mono text-xs text-slate-700">
+              Last updated: {lastUpdated}
+            </span>
+          )}
+          <button
+            onClick={onLogout}
+            className="font-mono text-xs text-slate-600 hover:text-slate-400 transition-colors border border-navy-400 px-2 py-1 rounded"
+          >
+            Sign out
+          </button>
+        </div>
+
+        {/* Centered title block */}
+        <div className="flex flex-col items-center gap-0">
           <div className="flex items-center gap-4">
             <img
               src="/Indian_emblem.png"
               alt="Emblem of India"
               className="w-9 h-9 object-contain opacity-90"
             />
-            <h1 className="font-display text-3xl font-bold tracking-wide text-slate-100 leading-none">
-              Dashboard, <span style={{ color: '#E8813A' }}>MOHUA</span>
+            <h1 className="font-display text-3xl font-bold tracking-[0.18em] uppercase text-slate-100 leading-none">
+              Dash Board, <span style={{ color: '#E8813A' }}>MoHuA</span>
             </h1>
+            <img
+              src="/Indian_emblem.png"
+              alt=""
+              className="w-9 h-9 object-contain opacity-90"
+            />
           </div>
-          <div className="flex items-center gap-4 mt-1">
-            {lastUpdated && (
-              <span className="font-mono text-xs text-slate-700">
-                Last updated: {lastUpdated}
-              </span>
-            )}
-            <button
-              onClick={onLogout}
-              className="font-mono text-xs text-slate-600 hover:text-slate-400 transition-colors border border-navy-400 px-2 py-1 rounded"
-            >
-              Sign out
-            </button>
+
+          <PulseLine />
+
+          <div className="flex flex-col items-center leading-tight mt-0.5">
+            <span className="font-body text-xs text-slate-500 tracking-widest">by</span>
+            <span className="font-display text-sm font-bold tracking-[0.2em] uppercase text-slate-300">P.Deepak</span>
+            <span className="font-body text-xs tracking-widest uppercase text-slate-500">
+              Controller of Accounts, <span style={{ color: '#E8813A' }}>MoHuA</span>
+            </span>
           </div>
         </div>
-
-        <PulseLine />
-
-        <p className="font-body text-xs text-slate-500 tracking-wider mt-0.5">
-          By <span className="text-slate-400 font-medium">P.Deepak</span>
-          &nbsp;·&nbsp; Controller Of Accounts
-        </p>
       </header>
 
       {/* ── Body: sidebar + content ───────────────────────────────────── */}
