@@ -1,51 +1,44 @@
 import { useState, useMemo } from 'react'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid,
-  PieChart, Pie, Cell,
-} from 'recharts'
 
 const AMBER = '#E8813A'
-const GREEN = '#38B089'
-const BLUE  = '#4F9CF9'
-const RED   = '#D94F3D'
-const MUTED = '#5B7FA8'
-const TT    = { backgroundColor: '#12202F', border: '1px solid #1A2A40', borderRadius: 4, fontSize: 12 }
+const GREEN = '#059669'
+const BLUE  = '#3B82F6'
+const RED   = '#DC2626'
+const SLATE = '#64748B'
+const ALL   = '__all__'
+const TOP_N = 3
 
 const BUCKET_COLS = [
-  { key: 'T0',     label: 'T0',   color: '#38B089', desc: 'Same-day' },
-  { key: 'T1',     label: 'T1',   color: '#4F9CF9', desc: '1-2 days' },
-  { key: 'T2',     label: 'T2',   color: '#B8C8DC', desc: '3-5 days' },
-  { key: 'T3',     label: 'T3',   color: '#E8813A', desc: '6-10 days' },
-  { key: 'T4',     label: 'T4',   color: '#F5A623', desc: '11-30 days' },
-  { key: 'T5',     label: 'T5',   color: '#D94F3D', desc: '31-60 days' },
-  { key: 'T5Plus', label: 'T5+',  color: '#7B1C1C', desc: '60+ days' },
+  { key: 'T0',     label: 'T0',   color: '#059669', desc: 'Same-day' },
+  { key: 'T1',     label: 'T1',   color: '#3B82F6', desc: '1-2 days' },
+  { key: 'T2',     label: 'T2',   color: '#7C3AED', desc: '3-5 days' },
+  { key: 'T3',     label: 'T3',   color: '#D97706', desc: '6-10 days' },
+  { key: 'T4',     label: 'T4',   color: '#EA580C', desc: '11-30 days' },
+  { key: 'T5',     label: 'T5',   color: '#DC2626', desc: '31-60 days' },
+  { key: 'T5Plus', label: 'T5+',  color: '#7F1D1D', desc: '60+ days' },
 ]
 
-const STATUS_COLORS = {
-  Closed:    '#38B089',
-  Pending:   '#E8813A',
-  Cancelled: '#4F9CF9',
-  Returned:  '#D94F3D',
-}
-
-const ALL = '__all__'
+const STATUS_META = [
+  { key: 'closed',    label: 'Closed',    color: '#059669' },
+  { key: 'pending',   label: 'Pending',   color: '#D97706' },
+  { key: 'returned',  label: 'Returned',  color: '#DC2626' },
+  { key: 'cancelled', label: 'Cancelled', color: '#3B82F6' },
+]
 
 function pct(n, d) { return d > 0 ? +(n / d * 100).toFixed(1) : 0 }
-function fmt(n)    { return n != null ? n.toLocaleString('en-IN') : '—' }
+function fmt(n)    { return n != null ? Number(n).toLocaleString('en-IN') : '—' }
 function fmtAmt(n) {
   if (n == null) return '—'
   if (n >= 1e7) return `₹${(n / 1e7).toFixed(2)} Cr`
   if (n >= 1e5) return `₹${(n / 1e5).toFixed(2)} L`
-  return `₹${n.toLocaleString('en-IN')}`
+  return `₹${Number(n).toLocaleString('en-IN')}`
 }
-function short(name, len = 34) { return name?.slice(0, len) ?? '' }
-
 function getMonth(period) {
   const m = period?.match(/^([A-Za-z]+)\s+[\d\s–\-]+,?\s*(\d{4})/)
   return m ? `${m[1]} ${m[2]}` : (period?.split(' ')[0] ?? '')
 }
 
-// ── Aggregation helpers ───────────────────────────────────────────────────
+// ── Aggregation ──────────────────────────────────────────────────────────────
 
 function aggregateEbm(weeksList) {
   let totalBills = 0, totalAmount = 0, normalBills = 0, normalAmount = 0,
@@ -68,17 +61,23 @@ function aggregateEbmPaos(weeksList) {
   for (const w of weeksList) {
     for (const p of (w.ebm?.paos ?? [])) {
       const key = p.pao_code || p.pao_name
-      if (!map[key]) map[key] = { pao_name: p.pao_name, pao_code: p.pao_code,
-                                   total_bills: 0, normal_bills: 0, ebill_count: 0 }
-      map[key].total_bills  += p.total_bills  ?? 0
-      map[key].normal_bills += p.normal_bills ?? 0
-      map[key].ebill_count  += p.ebill_count  ?? 0
+      if (!map[key]) map[key] = {
+        pao_name: p.pao_name, pao_code: p.pao_code,
+        total_bills: 0, total_amount: 0,
+        normal_bills: 0, normal_amount: 0,
+        ebill_count: 0, ebill_amount: 0,
+      }
+      map[key].total_bills   += p.total_bills   ?? 0
+      map[key].total_amount  += p.total_amount  ?? 0
+      map[key].normal_bills  += p.normal_bills  ?? 0
+      map[key].normal_amount += p.normal_amount ?? 0
+      map[key].ebill_count   += p.ebill_count   ?? 0
+      map[key].ebill_amount  += p.ebill_amount  ?? 0
     }
   }
   return Object.values(map)
     .filter(p => p.total_bills > 0)
-    .map(p => ({ ...p, ebill_pct: pct(p.ebill_count, p.total_bills) }))
-    .sort((a, b) => b.ebill_pct - a.ebill_pct)
+    .sort((a, b) => b.total_bills - a.total_bills)
 }
 
 function aggregateDelayPaos(weeksList, type) {
@@ -88,17 +87,21 @@ function aggregateDelayPaos(weeksList, type) {
     for (const p of paos) {
       const key = p.pao_code || p.pao
       if (!map[key]) {
-        map[key] = { pao: p.pao, pao_code: p.pao_code, total_bills_token: 0 }
+        map[key] = { pao: p.pao, pao_code: p.pao_code, total_bills_token: 0,
+          closed: 0, pending: 0, cancelled: 0, returned: 0 }
         BUCKET_COLS.forEach(b => { map[key][`${b.key}_bills`] = 0 })
       }
       map[key].total_bills_token += p.total_bills_token || 0
+      map[key].closed    += p.closed    || 0
+      map[key].pending   += p.pending   || 0
+      map[key].cancelled += p.cancelled || 0
+      map[key].returned  += p.returned  || 0
       BUCKET_COLS.forEach(b => { map[key][`${b.key}_bills`] += p[`${b.key}_bills`] || 0 })
     }
   }
   return Object.values(map)
 }
 
-// aggregateStatus optionally filtered to a single pao_code
 function aggregateStatus(weeksList, paoCode = ALL) {
   let closed = 0, pending = 0, cancelled = 0, returned = 0
   for (const w of weeksList) {
@@ -128,193 +131,118 @@ function combinePaos(normalPaos, ebillPaos) {
   return Object.values(map)
 }
 
-// ── Summary card ──────────────────────────────────────────────────────────
+// ── UI components ─────────────────────────────────────────────────────────────
+
+function SectionDivider({ children }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      <span style={{
+        fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.12em',
+        textTransform: 'uppercase', color: SLATE, fontWeight: 700, whiteSpace: 'nowrap',
+      }}>{children}</span>
+      <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+    </div>
+  )
+}
+
 function SummaryCard({ label, count, amount, countPct, amountPct, accent }) {
   return (
-    <div className="kpi-card flex-1" style={{ borderColor: accent }}>
-      <p className="font-body text-xs font-semibold tracking-widest uppercase text-slate-500 mb-3">{label}</p>
-      <div className="space-y-2">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="font-display text-2xl font-bold leading-none" style={{ color: accent }}>{fmt(count)}</span>
-          {countPct != null && <span className="font-mono text-xs text-slate-500 shrink-0">{countPct}% of bills</span>}
+    <div style={{
+      background: '#FFFFFF', borderRadius: 12, borderTop: `3px solid ${accent}`,
+      padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+    }}>
+      <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', textTransform: 'uppercase', color: SLATE, fontWeight: 600, marginBottom: 10 }}>{label}</p>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontFamily: 'Rajdhani', fontSize: '2rem', fontWeight: 700, lineHeight: 1, color: accent }}>{fmt(count)}</span>
+        {countPct != null && <span style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', color: SLATE }}>{countPct}% of bills</span>}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', borderTop: '1px solid #F1F5F9', marginTop: 10, paddingTop: 8, gap: 8 }}>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.8rem', color: '#334155' }}>{fmtAmt(amount)}</span>
+        {amountPct != null && <span style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', color: SLATE }}>{amountPct}% of amt</span>}
+      </div>
+    </div>
+  )
+}
+
+function BillTypeCard({ label, count, amount, countPct, accent }) {
+  return (
+    <div style={{
+      background: '#FFFFFF', borderRadius: 10, borderTop: `3px solid ${accent}`,
+      padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+    }}>
+      <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', textTransform: 'uppercase', color: SLATE, fontWeight: 600, marginBottom: 8 }}>{label}</p>
+      <p style={{ fontFamily: 'Rajdhani', fontSize: '1.7rem', fontWeight: 700, lineHeight: 1, color: accent }}>{fmt(count)}</p>
+      {countPct != null && (
+        <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', color: SLATE, marginTop: 3 }}>{countPct}% of bills</p>
+      )}
+      <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.78rem', color: '#334155', borderTop: '1px solid #F1F5F9', marginTop: 8, paddingTop: 8 }}>{fmtAmt(amount)}</p>
+    </div>
+  )
+}
+
+function StatusCard({ label, count, color }) {
+  return (
+    <div style={{
+      background: '#FFFFFF', borderRadius: 10, borderLeft: `4px solid ${color}`,
+      padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+    }}>
+      <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', textTransform: 'uppercase', color: SLATE, fontWeight: 600, marginBottom: 8 }}>{label}</p>
+      <p style={{ fontFamily: 'Rajdhani', fontSize: '1.7rem', fontWeight: 700, color, lineHeight: 1 }}>{fmt(count)}</p>
+    </div>
+  )
+}
+
+function BucketCard({ label, desc, count, total, color }) {
+  const percentage = pct(count, total)
+  return (
+    <div style={{
+      background: '#FFFFFF', borderRadius: 10, padding: '14px 14px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #F1F5F9',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+        <span style={{ fontFamily: 'Rajdhani', fontSize: '1.1rem', fontWeight: 700, color }}>{label}</span>
+        <span style={{ fontSize: '0.58rem', color: SLATE, fontFamily: 'JetBrains Mono' }}>{desc}</span>
+      </div>
+      <p style={{ fontFamily: 'Rajdhani', fontSize: '1.8rem', fontWeight: 700, color, lineHeight: 1 }}>{percentage}%</p>
+      <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', color: SLATE, marginTop: 3 }}>{fmt(count)} bills</p>
+      <div style={{ marginTop: 10, height: 4, background: '#F1F5F9', borderRadius: 2 }}>
+        <div style={{ height: '100%', width: `${Math.min(100, percentage)}%`, background: color, borderRadius: 2 }} />
+      </div>
+    </div>
+  )
+}
+
+function PerformerCard({ rank, pao, totalBills, t0Pct, latePct, isGood }) {
+  const accentColor = isGood ? '#059669' : '#DC2626'
+  return (
+    <div style={{
+      background: '#FFFFFF', borderRadius: 10, borderLeft: `4px solid ${accentColor}`,
+      padding: '14px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
+        <span style={{ fontFamily: 'Rajdhani', fontWeight: 700, fontSize: '1.3rem', color: accentColor, lineHeight: 1, minWidth: 22 }}>{rank}</span>
+        <span style={{ fontFamily: 'Inter', fontSize: '0.8rem', fontWeight: 600, color: '#1E293B', lineHeight: 1.4, flex: 1 }}>{pao}</span>
+      </div>
+      <div style={{ display: 'flex', gap: 20 }}>
+        <div>
+          <p style={{ fontSize: '0.58rem', fontFamily: 'JetBrains Mono', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>T0 Same-day</p>
+          <p style={{ fontFamily: 'Rajdhani', fontSize: '1.1rem', fontWeight: 700, color: '#059669', lineHeight: 1 }}>{t0Pct}%</p>
         </div>
-        <div className="flex items-baseline justify-between border-t border-navy-400 pt-2 gap-2">
-          <span className="font-mono text-sm text-slate-300">{fmtAmt(amount)}</span>
-          {amountPct != null && <span className="font-mono text-xs text-slate-500 shrink-0">{amountPct}% of amt</span>}
+        <div>
+          <p style={{ fontSize: '0.58rem', fontFamily: 'JetBrains Mono', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>T4+ Delayed</p>
+          <p style={{ fontFamily: 'Rajdhani', fontSize: '1.1rem', fontWeight: 700, color: '#DC2626', lineHeight: 1 }}>{latePct}%</p>
+        </div>
+        <div>
+          <p style={{ fontSize: '0.58rem', fontFamily: 'JetBrains Mono', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>Total Bills</p>
+          <p style={{ fontFamily: 'Rajdhani', fontSize: '1.1rem', fontWeight: 700, color: '#334155', lineHeight: 1 }}>{fmt(totalBills)}</p>
         </div>
       </div>
     </div>
   )
 }
 
-// ── Chart 1: PAO wise Bill Type Distribution ──────────────────────────────
-function BillTypeChart({ paos }) {
-  if (!paos.length) return <p className="text-slate-600 text-sm text-center py-8">No data</p>
+// ── Main dashboard ─────────────────────────────────────────────────────────────
 
-  const barData = paos.map(p => ({
-    name:        short(p.pao_name, 36),
-    Normal:      p.normal_bills,
-    'E-Bill':    p.ebill_count,
-    _ebill_pct:  p.ebill_pct,
-    _normal_pct: pct(p.normal_bills, p.total_bills),
-    _total:      p.total_bills,
-  }))
-
-  const rowH   = 38
-  const height = Math.max(260, barData.length * rowH)
-
-  return (
-    <div style={{ overflowY: 'auto', maxHeight: 520 }}>
-      <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={barData} layout="vertical" margin={{ top: 4, right: 120, bottom: 0, left: 220 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" horizontal={false} />
-          <XAxis type="number" tick={{ fill: '#7A8FA8', fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis dataKey="name" type="category" interval={0}
-            tick={{ fill: '#B8C8DC', fontSize: 10 }} axisLine={false} tickLine={false} width={220} />
-          <Tooltip
-            contentStyle={TT}
-            formatter={(val, name) => [`${fmt(val)} bills`, name]}
-            labelFormatter={(label, payload) => {
-              const p = payload?.[0]?.payload
-              return `${label}  —  N:${p?._normal_pct ?? 0}%  ·  E:${p?._ebill_pct ?? 0}%  |  Total: ${fmt(p?._total)}`
-            }}
-          />
-          <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
-          <Bar dataKey="Normal"  fill={MUTED} stackId="a" isAnimationActive={false} />
-          <Bar dataKey="E-Bill"  fill={GREEN} stackId="a" isAnimationActive={false}
-            label={{
-              content: ({ x, y, width, height, index }) => {
-                const d = barData[index]
-                if (!d) return null
-                return (
-                  <text x={x + width + 6} y={y + height / 2} dy={4}
-                    fill="#7A8FA8" fontSize={10} textAnchor="start">
-                    N:{d._normal_pct}% · E:{d._ebill_pct}%
-                  </text>
-                )
-              }
-            }}
-          />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// ── Chart 2: Bill Status Donut ────────────────────────────────────────────
-const RADIAN = Math.PI / 180
-function renderDonutLabel({ cx, cy, midAngle, innerRadius, outerRadius, percent }) {
-  if (percent < 0.04) return null
-  const r = innerRadius + (outerRadius - innerRadius) * 0.6
-  const x = cx + r * Math.cos(-midAngle * RADIAN)
-  const y = cy + r * Math.sin(-midAngle * RADIAN)
-  return (
-    <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight={600}>
-      {(percent * 100).toFixed(1)}%
-    </text>
-  )
-}
-
-function StatusDonut({ status }) {
-  const data = [
-    { name: 'Closed',    value: status.closed,    color: STATUS_COLORS.Closed },
-    { name: 'Pending',   value: status.pending,   color: STATUS_COLORS.Pending },
-    { name: 'Cancelled', value: status.cancelled, color: STATUS_COLORS.Cancelled },
-    { name: 'Returned',  value: status.returned,  color: STATUS_COLORS.Returned },
-  ].filter(d => d.value > 0)
-
-  const total = data.reduce((s, d) => s + d.value, 0)
-
-  return (
-    <div className="flex flex-col items-center">
-      <ResponsiveContainer width="100%" height={220}>
-        <PieChart>
-          <Pie data={data} cx="50%" cy="50%" innerRadius={58} outerRadius={90}
-            dataKey="value" labelLine={false} label={renderDonutLabel}>
-            {data.map(d => <Cell key={d.name} fill={d.color} />)}
-          </Pie>
-          <Tooltip contentStyle={TT}
-            formatter={(val, name) => [`${fmt(val)} bills (${pct(val, total)}%)`, name]} />
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 w-full px-4">
-        {data.map(d => (
-          <div key={d.name} className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: d.color }} />
-            <span className="font-body text-xs text-slate-400">{d.name}</span>
-            <span className="font-mono text-xs ml-auto" style={{ color: d.color }}>{fmt(d.value)}</span>
-          </div>
-        ))}
-      </div>
-      <p className="font-mono text-xs text-slate-600 mt-3">Total: {fmt(total)} bills</p>
-    </div>
-  )
-}
-
-// ── Delay distribution ────────────────────────────────────────────────────
-function DelayTooltip({ active, payload, label }) {
-  if (!active || !payload?.length) return null
-  const total = payload[0]?.payload?._total ?? 0
-  return (
-    <div style={{ ...TT, padding: '10px 12px', minWidth: 210 }}>
-      <p className="font-body text-xs font-semibold text-slate-300 mb-1 truncate max-w-[220px]">{label}</p>
-      <p className="font-mono text-xs text-slate-500 mb-2">Total: {fmt(total)} bills</p>
-      {payload.map(p => (
-        <div key={p.dataKey} className="flex justify-between gap-4 text-xs font-mono leading-5">
-          <span style={{ color: p.fill }}>{p.dataKey}</span>
-          <span className="text-slate-300">{fmt(p.payload[`_cnt_${p.dataKey}`])} &nbsp;({p.value}%)</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function DelayChart({ paos }) {
-  const barData = useMemo(() => {
-    if (!paos.length) return []
-    return [...paos]
-      .filter(p => (p.total_bills_token || 0) > 0)
-      .map(p => {
-        const total = p.total_bills_token || 0
-        const entry = { pao: short(p.pao), _total: total }
-        BUCKET_COLS.forEach(b => {
-          const cnt = p[`${b.key}_bills`] || 0
-          entry[b.label]           = pct(cnt, total)
-          entry[`_cnt_${b.label}`] = cnt
-        })
-        return entry
-      })
-      .sort((a, b) => (b['T0'] || 0) - (a['T0'] || 0))
-  }, [paos])
-
-  if (!barData.length) return (
-    <p className="text-slate-600 text-sm text-center py-8">No data for this selection</p>
-  )
-
-  const height = Math.max(260, barData.length * 36)
-
-  return (
-    <div style={{ overflowY: 'auto', maxHeight: 560 }}>
-      <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={barData} layout="vertical" margin={{ top: 4, right: 20, bottom: 0, left: 240 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" horizontal={false} />
-          <XAxis type="number" tickFormatter={v => `${v}%`} tick={{ fill: '#7A8FA8', fontSize: 11 }}
-            axisLine={false} tickLine={false} domain={[0, 100]} />
-          <YAxis dataKey="pao" type="category" interval={0}
-            tick={{ fill: '#B8C8DC', fontSize: 10 }} axisLine={false} tickLine={false} width={240} />
-          <Tooltip content={<DelayTooltip />} />
-          <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }}
-            formatter={val => { const b = BUCKET_COLS.find(b => b.label === val); return b ? `${val} (${b.desc})` : val }} />
-          {BUCKET_COLS.map(b => (
-            <Bar key={b.key} dataKey={b.label} fill={b.color} stackId="a" isAnimationActive={false} />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// ── Main dashboard ────────────────────────────────────────────────────────
 export default function BillDashboard({ data }) {
   const weeks = useMemo(() => data?.weeks ?? [], [data])
 
@@ -327,11 +255,9 @@ export default function BillDashboard({ data }) {
     return out
   }, [weeks])
 
-  const [selMonth,   setSelMonth]  = useState(() => months[0] ?? '')
-  const [selWeek,    setSelWeek]   = useState(ALL)
-  const [selPao,     setSelPao]    = useState(ALL)
-  const [delayTab,   setDelayTab]  = useState('total')
-  const [delayView,  setDelayView] = useState('all')  // 'all' | 'best' | 'worst'
+  const [selMonth, setSelMonth] = useState(() => months[0] ?? '')
+  const [selWeek,  setSelWeek]  = useState(ALL)
+  const [selPao,   setSelPao]   = useState(ALL)
 
   const monthWeeks = useMemo(
     () => [...weeks].reverse().filter(w => getMonth(w.period) === selMonth),
@@ -347,7 +273,7 @@ export default function BillDashboard({ data }) {
 
   const isMonthView = selWeek === ALL
 
-  // Summary card totals (unfiltered)
+  // Summary totals (all PAOs combined)
   const totals = useMemo(() => {
     const r = aggregateEbm(activePeriod)
     return {
@@ -362,180 +288,219 @@ export default function BillDashboard({ data }) {
   // All EBM PAOs (for filter list)
   const allEbmPaos = useMemo(() => aggregateEbmPaos(activePeriod), [activePeriod])
 
-  // Filtered EBM PAOs for chart
-  const filteredEbmPaos = useMemo(
-    () => selPao === ALL ? allEbmPaos : allEbmPaos.filter(p => (p.pao_code || p.pao_name) === selPao),
-    [allEbmPaos, selPao]
-  )
-
-  // Bill status filtered by selected PAO
-  const status = useMemo(
-    () => aggregateStatus(activePeriod, selPao),
-    [activePeriod, selPao]
-  )
-
-  // Delay PAOs
+  // Delay PAOs (all, for Best/Worst section)
   const normalDelayPaos = useMemo(() => aggregateDelayPaos(activePeriod, 'normal'), [activePeriod])
   const ebillDelayPaos  = useMemo(() => aggregateDelayPaos(activePeriod, 'ebill'),  [activePeriod])
   const totalDelayPaos  = useMemo(() => combinePaos(normalDelayPaos, ebillDelayPaos), [normalDelayPaos, ebillDelayPaos])
 
-  const basePaos = delayTab === 'total'  ? totalDelayPaos
-                 : delayTab === 'normal' ? normalDelayPaos
-                 : ebillDelayPaos
+  // Selected PAO data
+  const selectedEbmPao = useMemo(
+    () => selPao === ALL ? null : allEbmPaos.find(p => (p.pao_code || p.pao_name) === selPao) ?? null,
+    [allEbmPaos, selPao]
+  )
+  const selectedDelayPao = useMemo(
+    () => selPao === ALL ? null : totalDelayPaos.find(p => (p.pao_code || p.pao) === selPao) ?? null,
+    [totalDelayPaos, selPao]
+  )
+  const selectedStatus = useMemo(
+    () => aggregateStatus(activePeriod, selPao),
+    [activePeriod, selPao]
+  )
 
-  const TOP_N = 3
-  const chartPaos = useMemo(() => {
-    const active = basePaos.filter(p => (p.total_bills_token || 0) > 0)
-    if (delayView === 'best') {
-      return [...active].sort((a, b) => {
-        const t0A = pct(a.T0_bills || 0, a.total_bills_token)
-        const t0B = pct(b.T0_bills || 0, b.total_bills_token)
-        return t0B - t0A
-      }).slice(0, TOP_N)
-    }
-    if (delayView === 'worst') {
-      return [...active].sort((a, b) => {
-        const lateA = pct((a.T4_bills||0)+(a.T5_bills||0)+(a.T5Plus_bills||0), a.total_bills_token)
-        const lateB = pct((b.T4_bills||0)+(b.T5_bills||0)+(b.T5Plus_bills||0), b.total_bills_token)
-        return lateB - lateA
-      }).slice(0, TOP_N)
-    }
-    return active
-  }, [basePaos, delayView])
+  // Best 3 / Worst 3 — always from totalDelayPaos, period-filtered only
+  const activePaos = useMemo(
+    () => totalDelayPaos.filter(p => (p.total_bills_token || 0) > 0),
+    [totalDelayPaos]
+  )
+  const best3 = useMemo(
+    () => [...activePaos].sort((a, b) =>
+      pct(b.T0_bills || 0, b.total_bills_token) - pct(a.T0_bills || 0, a.total_bills_token)
+    ).slice(0, TOP_N),
+    [activePaos]
+  )
+  const worst3 = useMemo(
+    () => [...activePaos].sort((a, b) => {
+      const lateA = pct((a.T4_bills||0)+(a.T5_bills||0)+(a.T5Plus_bills||0), a.total_bills_token)
+      const lateB = pct((b.T4_bills||0)+(b.T5_bills||0)+(b.T5Plus_bills||0), b.total_bills_token)
+      return lateB - lateA
+    }).slice(0, TOP_N),
+    [activePaos]
+  )
+
+  const selectedPaoName = selectedEbmPao?.pao_name ??
+    (selPao !== ALL ? (allEbmPaos.find(p => (p.pao_code || p.pao_name) === selPao)?.pao_name ?? selPao) : null)
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+    <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#F1F5F9' }}>
+      <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-      {/* Period filters */}
-      <div className="flex items-center gap-4 flex-wrap">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 font-mono uppercase tracking-wide">Month</span>
-          <select value={selMonth} onChange={e => handleMonthChange(e.target.value)}
-            className="bg-navy-600 border border-navy-400 text-slate-100 text-sm rounded px-3 py-1.5 font-body outline-none">
-            {months.map(m => <option key={m}>{m}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500 font-mono uppercase tracking-wide">Week</span>
-          <select value={selWeek} onChange={e => setSelWeek(e.target.value)}
-            className="bg-navy-600 border border-navy-400 text-slate-100 text-sm rounded px-3 py-1.5 font-body outline-none">
-            <option value={ALL}>All weeks (month total)</option>
-            {monthWeeks.map(w => <option key={w.period} value={w.period}>{w.period}</option>)}
-          </select>
-        </div>
-        {isMonthView && (
-          <span className="font-mono text-xs text-slate-600">
-            Aggregated across {monthWeeks.length} week{monthWeeks.length !== 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
-
-      {/* Summary cards */}
-      <div className="flex gap-4">
-        <SummaryCard label="Total Bills"  count={totals.totalBills}  amount={totals.totalAmount}  accent={BLUE} />
-        <SummaryCard label="Normal Bills" count={totals.normalBills} amount={totals.normalAmount}
-          countPct={totals.normalBillPct} amountPct={totals.normalAmtPct} accent={AMBER} />
-        <SummaryCard label="E-Bills"      count={totals.ebillCount}  amount={totals.ebillAmount}
-          countPct={totals.ebillBillPct}  amountPct={totals.ebillAmtPct}  accent={GREEN} />
-      </div>
-
-      {/* PAO filter — applies to Bill Type + Status charts */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-slate-500 font-mono uppercase tracking-wide">PAO</span>
-        <select value={selPao} onChange={e => setSelPao(e.target.value)}
-          className="bg-navy-600 border border-navy-400 text-slate-100 text-sm rounded px-3 py-1.5 font-body outline-none max-w-xs">
-          <option value={ALL}>All PAOs</option>
-          {allEbmPaos.map(p => (
-            <option key={p.pao_code || p.pao_name} value={p.pao_code || p.pao_name}>
-              {p.pao_name}
-            </option>
-          ))}
-        </select>
-        {selPao !== ALL && (
-          <button onClick={() => setSelPao(ALL)}
-            className="text-xs font-mono text-slate-500 hover:text-slate-300 border border-navy-400 px-2 py-1 rounded">
-            Clear
-          </button>
-        )}
-      </div>
-
-      {/* Row: PAO wise Bill Type Distribution + Bill Status */}
-      <div className="grid grid-cols-5 gap-4">
-        <div className="col-span-3 chart-card">
-          <div className="section-heading mb-3">
-            <span className="section-label">PAO wise Bill Type Distribution</span>
+        {/* ── Filters ────────────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span className="filter-label">Month</span>
+            <select className="filter-select" value={selMonth} onChange={e => handleMonthChange(e.target.value)}>
+              {months.map(m => <option key={m}>{m}</option>)}
+            </select>
           </div>
-          <BillTypeChart paos={filteredEbmPaos} />
-        </div>
-        <div className="col-span-2 chart-card">
-          <div className="section-heading mb-3">
-            <span className="section-label">Bill Status Breakdown</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span className="filter-label">Week</span>
+            <select className="filter-select" value={selWeek} onChange={e => setSelWeek(e.target.value)}>
+              <option value={ALL}>All weeks (month total)</option>
+              {monthWeeks.map(w => <option key={w.period} value={w.period}>{w.period}</option>)}
+            </select>
           </div>
-          <StatusDonut status={status} />
-        </div>
-      </div>
-
-      {/* Delay distribution */}
-      <div className="chart-card">
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div className="section-heading mb-0">
-            <span className="section-label">Delay Bucket Distribution by PAO (% of bills)</span>
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Best / All / Worst toggle */}
-            <div className="flex gap-1.5">
-              {[
-                { key: 'best',  label: '🏆 Best 3',   activeColor: GREEN },
-                { key: 'all',   label: 'All PAOs',     activeColor: BLUE  },
-                { key: 'worst', label: '⚠ Worst 3',   activeColor: RED   },
-              ].map(v => (
-                <button key={v.key} onClick={() => setDelayView(v.key)}
-                  className="px-3 py-1 rounded text-xs font-display font-semibold tracking-wide transition-all border"
-                  style={{
-                    borderColor: v.activeColor,
-                    background: delayView === v.key ? v.activeColor : 'transparent',
-                    color: delayView === v.key ? '#0A1628' : v.activeColor,
-                  }}>
-                  {v.label}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span className="filter-label">PAO</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <select className="filter-select" style={{ maxWidth: 300 }} value={selPao} onChange={e => setSelPao(e.target.value)}>
+                <option value={ALL}>All PAOs</option>
+                {allEbmPaos.map(p => (
+                  <option key={p.pao_code || p.pao_name} value={p.pao_code || p.pao_name}>{p.pao_name}</option>
+                ))}
+              </select>
+              {selPao !== ALL && (
+                <button onClick={() => setSelPao(ALL)}
+                  style={{ fontSize: '0.7rem', fontFamily: 'JetBrains Mono', color: SLATE, cursor: 'pointer', background: '#E2E8F0', border: 'none', borderRadius: 4, padding: '5px 8px' }}>
+                  ✕
                 </button>
-              ))}
-            </div>
-
-            {/* Divider */}
-            <span className="text-navy-400 text-slate-700">|</span>
-
-            {/* Normal / E-Bills / Total toggle */}
-            <div className="flex gap-1.5">
-              {[
-                { key: 'total',  label: 'Total' },
-                { key: 'normal', label: 'Normal' },
-                { key: 'ebill',  label: 'E-Bills' },
-              ].map(t => (
-                <button key={t.key} onClick={() => setDelayTab(t.key)}
-                  className="px-3 py-1 rounded text-xs font-display font-semibold tracking-wide transition-all border"
-                  style={{
-                    borderColor: AMBER,
-                    background: delayTab === t.key ? AMBER : 'transparent',
-                    color: delayTab === t.key ? '#0A1628' : AMBER,
-                  }}>
-                  {t.label}
-                </button>
-              ))}
+              )}
             </div>
           </div>
+          {isMonthView && (
+            <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.7rem', color: SLATE, paddingBottom: 2 }}>
+              {monthWeeks.length} week{monthWeeks.length !== 1 ? 's' : ''} aggregated
+            </span>
+          )}
         </div>
 
-        {delayView !== 'all' && (
-          <p className="font-mono text-xs text-slate-600 mb-3">
-            {delayView === 'best'
-              ? `Top ${TOP_N} PAOs by T0 (same-day) closure rate`
-              : `Top ${TOP_N} PAOs by T4+ (10d+) delayed bill rate`}
-          </p>
+        {/* ── Summary cards ──────────────────────────────────────────────── */}
+        <div>
+          <SectionDivider>
+            Bill Summary — {selMonth}{selWeek !== ALL ? ` · ${selWeek}` : ''}
+          </SectionDivider>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <SummaryCard label="Total Bills"  count={totals.totalBills}  amount={totals.totalAmount}  accent={BLUE} />
+            <SummaryCard label="Normal Bills" count={totals.normalBills} amount={totals.normalAmount}
+              countPct={totals.normalBillPct} amountPct={totals.normalAmtPct} accent={AMBER} />
+            <SummaryCard label="E-Bills" count={totals.ebillCount} amount={totals.ebillAmount}
+              countPct={totals.ebillBillPct} amountPct={totals.ebillAmtPct} accent={GREEN} />
+          </div>
+        </div>
+
+        {/* ── PAO detail or prompt ───────────────────────────────────────── */}
+        {selPao === ALL ? (
+          <div style={{
+            background: '#FFFFFF', borderRadius: 12, padding: '28px 32px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #E2E8F0',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textAlign: 'center',
+          }}>
+            <span style={{ fontSize: '1.6rem', marginBottom: 2 }}>📋</span>
+            <p style={{ fontFamily: 'Rajdhani', fontSize: '1.1rem', fontWeight: 700, color: '#334155', letterSpacing: '0.03em' }}>
+              Select a PAO to view detailed breakdown
+            </p>
+            <p style={{ fontFamily: 'Inter', fontSize: '0.8rem', color: SLATE, maxWidth: 400 }}>
+              Choose a PAO from the dropdown above to see bill type, status, and delay bucket distribution for that office
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* PAO name header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 4, height: 22, background: BLUE, borderRadius: 2 }} />
+              <span style={{ fontFamily: 'Rajdhani', fontSize: '1.1rem', fontWeight: 700, color: '#1E293B', letterSpacing: '0.04em' }}>
+                {selectedPaoName}
+              </span>
+            </div>
+
+            {/* Bill Type */}
+            <div>
+              <SectionDivider>Bill Type</SectionDivider>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+                <BillTypeCard label="Total Bills" count={selectedEbmPao?.total_bills} amount={selectedEbmPao?.total_amount} accent={BLUE} />
+                <BillTypeCard label="Normal Bills" count={selectedEbmPao?.normal_bills} amount={selectedEbmPao?.normal_amount}
+                  countPct={pct(selectedEbmPao?.normal_bills || 0, selectedEbmPao?.total_bills || 0)} accent={AMBER} />
+                <BillTypeCard label="E-Bills" count={selectedEbmPao?.ebill_count} amount={selectedEbmPao?.ebill_amount}
+                  countPct={pct(selectedEbmPao?.ebill_count || 0, selectedEbmPao?.total_bills || 0)} accent={GREEN} />
+              </div>
+            </div>
+
+            {/* Bill Status */}
+            <div>
+              <SectionDivider>Bill Status</SectionDivider>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
+                {STATUS_META.map(s => (
+                  <StatusCard key={s.key} label={s.label} count={selectedStatus[s.key]} color={s.color} />
+                ))}
+              </div>
+            </div>
+
+            {/* Delay Distribution */}
+            <div>
+              <SectionDivider>Delay Distribution</SectionDivider>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
+                {BUCKET_COLS.map(b => (
+                  <BucketCard key={b.key}
+                    label={b.label} desc={b.desc} color={b.color}
+                    count={selectedDelayPao?.[`${b.key}_bills`] || 0}
+                    total={selectedDelayPao?.total_bills_token || 0}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
-        <DelayChart paos={chartPaos} />
-      </div>
+        {/* ── Performance Insights — always shown ───────────────────────── */}
+        <div>
+          <SectionDivider>Performance Insights</SectionDivider>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
+            {/* Best 3 */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: '1.05rem' }}>🏆</span>
+                <span style={{ fontFamily: 'Rajdhani', fontSize: '0.85rem', fontWeight: 700, color: '#059669', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Best 3 Performers</span>
+                <span style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', color: SLATE }}>by T0 rate</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {best3.length === 0
+                  ? <p style={{ fontSize: '0.8rem', color: SLATE, fontFamily: 'Inter' }}>No data for this period</p>
+                  : best3.map((p, i) => (
+                    <PerformerCard key={p.pao_code || p.pao} rank={i + 1}
+                      pao={p.pao} totalBills={p.total_bills_token}
+                      t0Pct={pct(p.T0_bills || 0, p.total_bills_token)}
+                      latePct={pct((p.T4_bills||0)+(p.T5_bills||0)+(p.T5Plus_bills||0), p.total_bills_token)}
+                      isGood={true}
+                    />
+                  ))}
+              </div>
+            </div>
+
+            {/* Worst 3 */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: '1.05rem' }}>⚠️</span>
+                <span style={{ fontFamily: 'Rajdhani', fontSize: '0.85rem', fontWeight: 700, color: '#DC2626', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Worst 3 Performers</span>
+                <span style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', color: SLATE }}>by T4+ rate</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {worst3.length === 0
+                  ? <p style={{ fontSize: '0.8rem', color: SLATE, fontFamily: 'Inter' }}>No data for this period</p>
+                  : worst3.map((p, i) => (
+                    <PerformerCard key={p.pao_code || p.pao} rank={i + 1}
+                      pao={p.pao} totalBills={p.total_bills_token}
+                      t0Pct={pct(p.T0_bills || 0, p.total_bills_token)}
+                      latePct={pct((p.T4_bills||0)+(p.T5_bills||0)+(p.T5Plus_bills||0), p.total_bills_token)}
+                      isGood={false}
+                    />
+                  ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   )
 }

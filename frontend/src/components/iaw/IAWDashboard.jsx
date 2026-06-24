@@ -8,7 +8,7 @@ import {
 const ZONE_COLORS = { NZ: '#4F9CF9', SZ: '#E8813A', WZ: '#38B089', EZ: '#D94F3D' }
 const ZONE_LABELS = { NZ: 'North Zone', SZ: 'South Zone', WZ: 'West Zone', EZ: 'East Zone' }
 const ZONES = ['NZ', 'SZ', 'WZ', 'EZ']
-const TT_STYLE = { backgroundColor: '#12202F', border: '1px solid #1A2A40', borderRadius: 4, fontSize: 12 }
+const TT_STYLE = { backgroundColor: '#1E293B', border: '1px solid #334155', borderRadius: 6, fontSize: 12 }
 
 function fmt(n) { return n != null ? Number(n).toLocaleString() : '—' }
 function pct(settled, opening, raised) {
@@ -27,9 +27,9 @@ function SectionHeading({ children }) {
 function KpiCard({ label, value, sub, accent, extra }) {
   return (
     <div className="kpi-card" style={{ borderColor: accent }}>
-      <p className="font-body text-xs font-semibold tracking-widest uppercase text-slate-500 mb-1">{label}</p>
+      <p className="font-body text-xs font-semibold tracking-widest uppercase mb-1" style={{ color: '#64748B' }}>{label}</p>
       <p className="font-display text-4xl font-bold leading-none mb-1" style={{ color: accent }}>{value}</p>
-      <p className="font-body text-xs text-slate-700">{sub}</p>
+      <p className="font-body text-xs" style={{ color: '#475569' }}>{sub}</p>
       {extra}
     </div>
   )
@@ -152,7 +152,7 @@ export default function IAWDashboard({ data }) {
         <select
           value={selMonth}
           onChange={e => setSelMonth(e.target.value)}
-          className="bg-navy-600 border border-navy-400 text-slate-100 text-sm rounded px-3 py-1.5 font-body outline-none"
+          className="filter-select"
         >
           {[...monthNames].reverse().map(m => <option key={m}>{m}</option>)}
         </select>
@@ -164,7 +164,7 @@ export default function IAWDashboard({ data }) {
               className="px-3 py-1 rounded text-xs font-display font-semibold tracking-wide transition-all border"
               style={{
                 borderColor: ZONE_COLORS[z],
-                color: selZones.includes(z) ? '#0A1628' : ZONE_COLORS[z],
+                color: selZones.includes(z) ? '#FFFFFF' : ZONE_COLORS[z],
                 background: selZones.includes(z) ? ZONE_COLORS[z] : 'transparent',
               }}
             >
@@ -180,18 +180,18 @@ export default function IAWDashboard({ data }) {
         <KpiCard label="Paras Raised"    value={fmt(totals.raised)}  sub="New paras this month"   accent="#E8813A" />
         <KpiCard label="Paras Settled"   value={fmt(totals.settled)} sub="Resolved this month"    accent="#38B089" />
         <KpiCard
-          label="Closing Balance" value={fmt(totals.closing)} sub="Outstanding at month-end" accent="#E8EDF5"
+          label="Closing Balance" value={fmt(totals.closing)} sub="Outstanding at month-end" accent="#334155"
           extra={delta != null && (
-            <p className="text-xs mt-1.5 font-body" style={{ color: delta > 0 ? '#D94F3D' : '#38B089' }}>
+            <p className="text-xs mt-1.5 font-body" style={{ color: delta > 0 ? '#DC2626' : '#059669' }}>
               {delta > 0 ? '▲' : '▼'} {fmt(Math.abs(delta))} vs {prevMonth?.month}
             </p>
           )}
         />
         <KpiCard
-          label="Settlement Rate" value={`${settlRate.toFixed(1)}%`} sub="Resolved vs exposure" accent={settlRate >= 4 ? '#38B089' : '#E8813A'}
+          label="Settlement Rate" value={`${settlRate.toFixed(1)}%`} sub="Resolved vs exposure" accent={settlRate >= 4 ? '#059669' : '#E8813A'}
           extra={
-            <div className="mt-2 bg-navy-400 rounded-full h-0.5">
-              <div className="h-0.5 rounded-full" style={{ width: `${Math.min(settlRate, 100)}%`, background: settlRate >= 4 ? '#38B089' : '#E8813A' }} />
+            <div className="mt-2 rounded-full h-1" style={{ background: '#E2E8F0' }}>
+              <div className="h-1 rounded-full" style={{ width: `${Math.min(settlRate, 100)}%`, background: settlRate >= 4 ? '#059669' : '#E8813A' }} />
             </div>
           }
         />
@@ -203,12 +203,12 @@ export default function IAWDashboard({ data }) {
           <SectionHeading>Outstanding Paras by Zone</SectionHeading>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={zoneBarData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" />
-              <XAxis dataKey="name" tick={{ fill: '#7A8FA8', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#7A8FA8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+              <XAxis dataKey="name" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={TT_STYLE} />
-              <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
-              <Bar dataKey="Opening" fill="#2B4069" radius={[2,2,0,0]} />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#64748B' }} />
+              <Bar dataKey="Opening" fill="#94A3B8" radius={[2,2,0,0]} />
               <Bar dataKey="Raised"  fill="#E8813A" radius={[2,2,0,0]} />
               <Bar dataKey="Settled" fill="#38B089" radius={[2,2,0,0]} />
               <Bar dataKey="Closing" fill="#4F9CF9" radius={[2,2,0,0]} />
@@ -223,7 +223,7 @@ export default function IAWDashboard({ data }) {
               <Pie data={donutData} cx="50%" cy="50%" innerRadius={70} outerRadius={110}
                    dataKey="value" label={({ name, percent }) => `${name.split(' ')[0]} ${(percent*100).toFixed(0)}%`}
                    labelLine={false}>
-                {donutData.map(d => <Cell key={d.zone} fill={ZONE_COLORS[d.zone]} stroke="#111C2D" strokeWidth={2} />)}
+                {donutData.map(d => <Cell key={d.zone} fill={ZONE_COLORS[d.zone]} stroke="#FFFFFF" strokeWidth={2} />)}
               </Pie>
               <Tooltip contentStyle={TT_STYLE} formatter={v => fmt(v)} />
             </PieChart>
@@ -237,11 +237,11 @@ export default function IAWDashboard({ data }) {
           <SectionHeading>Office-wise Outstanding Paras</SectionHeading>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={officeData} layout="vertical" margin={{ top: 4, right: 16, bottom: 0, left: 120 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" horizontal={false} />
-              <XAxis type="number" tick={{ fill: '#7A8FA8', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis dataKey="office" type="category" tick={{ fill: '#B8C8DC', fontSize: 11 }} axisLine={false} tickLine={false} width={120} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" horizontal={false} />
+              <XAxis type="number" tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis dataKey="office" type="category" tick={{ fill: '#334155', fontSize: 11 }} axisLine={false} tickLine={false} width={120} />
               <Tooltip contentStyle={TT_STYLE} />
-              <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#64748B' }} />
               {selZones.map(z => <Bar key={z} dataKey={z} name={ZONE_LABELS[z]} fill={ZONE_COLORS[z]} stackId="a" />)}
             </BarChart>
           </ResponsiveContainer>
@@ -251,14 +251,14 @@ export default function IAWDashboard({ data }) {
           <SectionHeading>Month-on-Month Trend</SectionHeading>
           <ResponsiveContainer width="100%" height={300}>
             <LineChart data={trendData} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" />
-              <XAxis dataKey="month" tick={{ fill: '#7A8FA8', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#7A8FA8', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+              <XAxis dataKey="month" tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip contentStyle={TT_STYLE} />
-              <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
+              <Legend wrapperStyle={{ fontSize: 11, color: '#64748B' }} />
               {selZones.map(z => (
                 <Line key={z} type="monotone" dataKey={z} name={ZONE_LABELS[z]}
-                  stroke={ZONE_COLORS[z]} strokeWidth={2.5} dot={{ r: 5, fill: ZONE_COLORS[z], strokeWidth: 2, stroke: '#111C2D' }} />
+                  stroke={ZONE_COLORS[z]} strokeWidth={2.5} dot={{ r: 5, fill: ZONE_COLORS[z], strokeWidth: 2, stroke: '#FFFFFF' }} />
               ))}
             </LineChart>
           </ResponsiveContainer>
@@ -270,23 +270,23 @@ export default function IAWDashboard({ data }) {
         <SectionHeading>Zone Performance Analysis</SectionHeading>
         <div className="grid grid-cols-4 gap-3 mb-4">
           {zoneScorecards.map(z => (
-            <div key={z.zone} className="bg-navy-600 rounded p-4 border-t-2" style={{ borderColor: ZONE_COLORS[z.zone] }}>
+            <div key={z.zone} className="rounded-xl p-4" style={{ background: '#FFFFFF', borderTop: `3px solid ${ZONE_COLORS[z.zone]}`, boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
               <div className="flex justify-between items-baseline mb-1">
                 <span className="font-display font-bold tracking-wider text-sm" style={{ color: ZONE_COLORS[z.zone] }}>{z.zone}</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ color: z.perfColor, background: z.perfColor + '22' }}>{z.perf}</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ color: z.perfColor, background: z.perfColor + '18' }}>{z.perf}</span>
               </div>
-              <p className="text-xs text-slate-600 mb-2">{ZONE_LABELS[z.zone]}</p>
-              <p className="font-display text-3xl font-bold text-slate-100">{fmt(z.closing)}</p>
-              <p className="text-xs text-slate-700 mb-3">outstanding paras</p>
+              <p className="text-xs mb-2" style={{ color: '#64748B' }}>{ZONE_LABELS[z.zone]}</p>
+              <p className="font-display text-3xl font-bold" style={{ color: '#1E293B' }}>{fmt(z.closing)}</p>
+              <p className="text-xs mb-3" style={{ color: '#475569' }}>outstanding paras</p>
               <div className="flex justify-between text-xs mb-1">
-                <span className="text-slate-500">Settlement Rate</span>
+                <span style={{ color: '#64748B' }}>Settlement Rate</span>
                 <span className="font-display font-semibold" style={{ color: ZONE_COLORS[z.zone] }}>{z.sr.toFixed(1)}%</span>
               </div>
-              <div className="bg-navy-400 rounded-full h-0.5">
-                <div className="h-0.5 rounded-full" style={{ width: `${Math.min(z.sr, 100)}%`, background: ZONE_COLORS[z.zone] }} />
+              <div className="rounded-full h-1" style={{ background: '#E2E8F0' }}>
+                <div className="h-1 rounded-full" style={{ width: `${Math.min(z.sr, 100)}%`, background: ZONE_COLORS[z.zone] }} />
               </div>
               {z.momDelta != null && (
-                <p className="text-xs mt-2" style={{ color: z.momDelta > 0 ? '#D94F3D' : '#38B089' }}>
+                <p className="text-xs mt-2" style={{ color: z.momDelta > 0 ? '#DC2626' : '#059669' }}>
                   {z.momDelta > 0 ? '▲' : '▼'} {fmt(Math.abs(z.momDelta))} vs {prevMonth?.month}
                 </p>
               )}
@@ -300,11 +300,11 @@ export default function IAWDashboard({ data }) {
             <SectionHeading>Settlement Efficiency by Zone</SectionHeading>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={effData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" />
-                <XAxis dataKey="month" tick={{ fill: '#7A8FA8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={v => `${v}%`} tick={{ fill: '#7A8FA8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis dataKey="month" tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={v => `${v}%`} tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={TT_STYLE} formatter={v => `${Number(v).toFixed(1)}%`} />
-                <Legend wrapperStyle={{ fontSize: 11, color: '#7A8FA8' }} />
+                <Legend wrapperStyle={{ fontSize: 11, color: '#64748B' }} />
                 {selZones.map(z => <Bar key={z} dataKey={z} name={ZONE_LABELS[z]} fill={ZONE_COLORS[z]} radius={[2,2,0,0]} />)}
               </BarChart>
             </ResponsiveContainer>
@@ -314,16 +314,16 @@ export default function IAWDashboard({ data }) {
             <SectionHeading>Net Change by Zone & Month</SectionHeading>
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={momData} margin={{ top: 8, right: 8, bottom: 30, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1A2A40" />
-                <XAxis dataKey="key" tick={{ fill: '#7A8FA8', fontSize: 9, whiteSpace: 'pre' }} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" />
-                <YAxis tick={{ fill: '#7A8FA8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis dataKey="key" tick={{ fill: '#94A3B8', fontSize: 9, whiteSpace: 'pre' }} axisLine={false} tickLine={false} interval={0} angle={-30} textAnchor="end" />
+                <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <Tooltip contentStyle={TT_STYLE} />
                 <Bar dataKey="net" radius={[2,2,0,0]} isAnimationActive={false}>
-                  {momData.map((d, i) => <Cell key={i} fill={d.net > 0 ? '#D94F3D' : d.net < 0 ? '#38B089' : '#5A7090'} />)}
+                  {momData.map((d, i) => <Cell key={i} fill={d.net > 0 ? '#DC2626' : d.net < 0 ? '#059669' : '#94A3B8'} />)}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-            <p className="text-xs text-slate-600 mt-1">Green = backlog reducing · Red = growing</p>
+            <p className="text-xs mt-1" style={{ color: '#64748B' }}>Green = backlog reducing · Red = growing</p>
           </div>
         </div>
       </div>
@@ -331,25 +331,27 @@ export default function IAWDashboard({ data }) {
       {/* Detail table */}
       <div>
         <SectionHeading>Paras Status — Office Detail</SectionHeading>
-        <div className="overflow-x-auto rounded border border-navy-400">
+        <div className="overflow-x-auto rounded-xl" style={{ border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-navy-400 bg-navy-800">
+              <tr style={{ borderBottom: '1px solid #E2E8F0', background: '#F8FAFC' }}>
                 {['Zone','Office','Opening','Raised','Settled','Closing','Net Change'].map(h => (
-                  <th key={h} className="px-3 py-2 text-left font-semibold tracking-wide text-slate-500 uppercase text-xs">{h}</th>
+                  <th key={h} className="px-3 py-2.5 text-left font-semibold tracking-wide uppercase" style={{ color: '#64748B', fontSize: '0.65rem', letterSpacing: '0.08em' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {tableRows.map((r, i) => (
-                <tr key={i} className="border-b border-navy-400 hover:bg-navy-600 transition-colors">
+                <tr key={i} style={{ borderBottom: '1px solid #F1F5F9', background: '#FFFFFF', transition: 'background 0.1s' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#FFFFFF'}>
                   <td className="px-3 py-2 font-display font-semibold" style={{ color: ZONE_COLORS[r.zone] }}>{r.zone}</td>
-                  <td className="px-3 py-2 text-slate-300">{r.office}</td>
-                  <td className="px-3 py-2 text-right text-slate-400 font-mono">{fmt(r.opening)}</td>
-                  <td className="px-3 py-2 text-right font-mono" style={{ color: r.raised ? '#E8813A' : '#5A7090' }}>{fmt(r.raised)}</td>
-                  <td className="px-3 py-2 text-right font-mono" style={{ color: r.settled ? '#38B089' : '#5A7090' }}>{fmt(r.settled)}</td>
-                  <td className="px-3 py-2 text-right font-mono text-slate-100 font-semibold">{fmt(r.closing)}</td>
-                  <td className="px-3 py-2 text-right font-mono" style={{ color: r.net > 0 ? '#D94F3D' : r.net < 0 ? '#38B089' : '#5A7090' }}>
+                  <td className="px-3 py-2" style={{ color: '#334155' }}>{r.office}</td>
+                  <td className="px-3 py-2 text-right font-mono" style={{ color: '#64748B' }}>{fmt(r.opening)}</td>
+                  <td className="px-3 py-2 text-right font-mono" style={{ color: r.raised ? '#E8813A' : '#94A3B8' }}>{fmt(r.raised)}</td>
+                  <td className="px-3 py-2 text-right font-mono" style={{ color: r.settled ? '#059669' : '#94A3B8' }}>{fmt(r.settled)}</td>
+                  <td className="px-3 py-2 text-right font-mono font-semibold" style={{ color: '#1E293B' }}>{fmt(r.closing)}</td>
+                  <td className="px-3 py-2 text-right font-mono" style={{ color: r.net > 0 ? '#DC2626' : r.net < 0 ? '#059669' : '#94A3B8' }}>
                     {r.net > 0 ? '+' : ''}{fmt(r.net)}
                   </td>
                 </tr>

@@ -49,8 +49,8 @@ export default function Sidebar({ active, onSelect }) {
     <aside className="w-56 shrink-0 bg-navy-800 border-r border-navy-400 flex flex-col overflow-y-auto">
       {/* Brand block */}
       <div className="px-4 py-5 border-b border-navy-400">
-        <p className="font-mono text-xs text-slate-600 mb-1 tracking-widest uppercase">MoHUA</p>
-        <h1 className="font-display font-bold text-lg leading-tight text-slate-100">
+        <p className="font-mono text-xs mb-1 tracking-widest uppercase" style={{ color: '#64748B' }}>MoHUA</p>
+        <h1 className="font-display font-bold text-lg leading-tight" style={{ color: '#F1F5F9' }}>
           Dashboard
         </h1>
         <p className="font-mono text-xs mt-1" style={{ color: AMBER }}>
@@ -81,7 +81,7 @@ export default function Sidebar({ active, onSelect }) {
 
       {/* Footer */}
       <div className="px-4 py-3 border-t border-navy-400">
-        <p className="font-mono text-xs text-slate-700">Auto-refreshes every 5 min</p>
+        <p className="font-mono text-xs" style={{ color: '#475569' }}>Auto-refreshes every 5 min</p>
       </div>
     </aside>
   )

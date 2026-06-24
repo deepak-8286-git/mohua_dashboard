@@ -9,7 +9,7 @@ import BillDashboard from './components/bill/BillDashboard'
 function Spinner() {
   return (
     <div className="flex-1 flex items-center justify-center">
-      <div className="text-slate-500 font-mono text-sm animate-pulse">Loading from Google Drive…</div>
+      <div className="text-slate-500 font-mono text-sm animate-pulse" style={{ color: '#64748B' }}>Loading from Google Drive…</div>
     </div>
   )
 }
@@ -33,7 +33,7 @@ function Dashboard({ onLogout }) {
     : null
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden bg-navy">
+    <div className="h-screen flex flex-col overflow-hidden bg-slate-100">
 
       {/* ── Top header ───────────────────────────────────────────────── */}
       <header className="px-6 pt-4 pb-3 bg-navy-800 border-b border-navy-400 shrink-0 relative">
@@ -87,7 +87,7 @@ function Dashboard({ onLogout }) {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar active={active} onSelect={setActive} />
 
-        <main className="flex-1 flex flex-col overflow-hidden bg-navy">
+        <main className="flex-1 flex flex-col overflow-hidden bg-slate-100">
           {active === 'iaw' && (
             iaw.isLoading ? <Spinner /> :
             iaw.isError   ? <ErrorMsg msg={iaw.error?.message} /> :

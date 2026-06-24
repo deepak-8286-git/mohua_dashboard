@@ -8,31 +8,73 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body, #root {
     height: 100%;
-    background-color: #0A1628;
-    color: #E8EDF5;
+    background-color: #F1F5F9;
+    color: #1E293B;
     font-family: 'Inter', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   ::-webkit-scrollbar { width: 5px; height: 5px; }
-  ::-webkit-scrollbar-track { background: #0D1B2E; }
-  ::-webkit-scrollbar-thumb { background: #1A2A40; border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: #E2E8F0; }
+  ::-webkit-scrollbar-thumb { background: #94A3B8; border-radius: 3px; }
 }
 
 @layer components {
   .kpi-card {
-    @apply bg-navy-600 rounded border-t-2 px-5 py-4;
+    background: #FFFFFF;
+    border-radius: 10px;
+    border-top: 3px solid;
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   }
   .chart-card {
-    @apply bg-navy-700 rounded p-4 border border-navy-400;
+    background: #FFFFFF;
+    border-radius: 10px;
+    padding: 16px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
   .section-heading {
     @apply flex items-center gap-3 mb-3;
   }
   .section-heading::after {
     content: '';
-    @apply flex-1 h-px bg-navy-400;
+    flex: 1;
+    height: 1px;
+    background: #E2E8F0;
   }
   .section-label {
-    @apply font-display text-xs font-semibold tracking-widest uppercase text-slate-500;
+    @apply font-display text-xs font-semibold tracking-widest uppercase;
+    color: #64748B;
+  }
+  .filter-select {
+    background: #FFFFFF;
+    border: 1px solid #CBD5E1;
+    color: #1E293B;
+    font-size: 0.875rem;
+    border-radius: 6px;
+    padding: 6px 12px;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .filter-select:focus { border-color: #E8813A; }
+  .filter-label {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    font-weight: 600;
+  }
+  .pill-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    border: 1.5px solid;
+    transition: all 0.15s;
+    cursor: pointer;
   }
 }
