@@ -36,18 +36,22 @@ function Dashboard({ onLogout }) {
     <div className="h-screen flex flex-col overflow-hidden bg-slate-100">
 
       {/* ── Top header ───────────────────────────────────────────────── */}
-      <header className="px-6 pt-4 pb-3 bg-navy-800 border-b border-navy-400 shrink-0 relative">
+      <header className="px-6 pt-4 pb-3 shrink-0 relative"
+        style={{ background: 'linear-gradient(160deg, #1e3a8a 0%, #1d4ed8 60%, #1e40af 100%)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
 
         {/* Sign out + last updated — top right */}
         <div className="absolute top-4 right-6 flex items-center gap-4">
           {lastUpdated && (
-            <span className="font-mono text-xs text-slate-700">
+            <span className="font-mono text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
               Last updated: {lastUpdated}
             </span>
           )}
           <button
             onClick={onLogout}
-            className="font-mono text-xs text-slate-600 hover:text-slate-400 transition-colors border border-navy-400 px-2 py-1 rounded"
+            className="font-mono text-xs transition-colors px-2 py-1 rounded"
+            style={{ color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.2)' }}
+            onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)' }}
           >
             Sign out
           </button>
@@ -56,28 +60,20 @@ function Dashboard({ onLogout }) {
         {/* Centered title block */}
         <div className="flex flex-col items-center gap-0">
           <div className="flex items-center gap-4">
-            <img
-              src="/Indian_emblem.png"
-              alt="Emblem of India"
-              className="w-9 h-9 object-contain opacity-90"
-            />
-            <h1 className="font-display text-3xl font-bold tracking-[0.18em] uppercase text-slate-100 leading-none">
-              Dash Board, <span style={{ color: '#E8813A' }}>MoHuA</span>
+            <img src="/Indian_emblem.png" alt="Emblem of India" className="w-9 h-9 object-contain" style={{ filter: 'brightness(0) invert(1)', opacity: 0.9 }} />
+            <h1 className="font-display text-3xl font-bold tracking-[0.18em] uppercase leading-none" style={{ color: '#FFFFFF' }}>
+              Dash Board, <span style={{ color: '#F9A55A' }}>MoHuA</span>
             </h1>
-            <img
-              src="/Indian_emblem.png"
-              alt=""
-              className="w-9 h-9 object-contain opacity-90"
-            />
+            <img src="/Indian_emblem.png" alt="" className="w-9 h-9 object-contain" style={{ filter: 'brightness(0) invert(1)', opacity: 0.9 }} />
           </div>
 
           <PulseLine />
 
           <div className="flex flex-col items-center leading-tight mt-0.5">
-            <span className="font-body text-xs text-slate-500 tracking-widest">by</span>
-            <span className="font-display text-sm font-bold tracking-[0.2em] uppercase text-slate-300">P.Deepak</span>
-            <span className="font-body text-xs tracking-widest uppercase text-slate-500">
-              Controller of Accounts, <span style={{ color: '#E8813A' }}>MoHuA</span>
+            <span className="font-body text-xs tracking-widest" style={{ color: 'rgba(255,255,255,0.45)' }}>by</span>
+            <span className="font-display text-sm font-bold tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.9)' }}>P.Deepak</span>
+            <span className="font-body text-xs tracking-widest uppercase" style={{ color: 'rgba(255,255,255,0.5)' }}>
+              Controller of Accounts, <span style={{ color: '#F9A55A' }}>MoHuA</span>
             </span>
           </div>
         </div>
