@@ -5,6 +5,7 @@ import PulseLine from './components/PulseLine'
 import LoginPage from './components/LoginPage'
 import IAWDashboard from './components/iaw/IAWDashboard'
 import BillDashboard from './components/bill/BillDashboard'
+import ScorecardDashboard from './components/bill/ScorecardDashboard'
 
 function Spinner() {
   return (
@@ -93,6 +94,11 @@ function Dashboard({ onLogout }) {
             bill.isLoading ? <Spinner /> :
             bill.isError   ? <ErrorMsg msg={bill.error?.message} /> :
             <BillDashboard data={bill.data} />
+          )}
+          {active === 'scorecard' && (
+            bill.isLoading ? <Spinner /> :
+            bill.isError   ? <ErrorMsg msg={bill.error?.message} /> :
+            <ScorecardDashboard data={bill.data} />
           )}
         </main>
       </div>

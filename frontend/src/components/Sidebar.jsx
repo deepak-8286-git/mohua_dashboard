@@ -80,7 +80,8 @@ export default function Sidebar({ active, onSelect }) {
           isOpen={billOpen}
           onToggle={() => setBillOpen(v => !v)}
         >
-          <NavItem label="Overview" active={active === 'bill'} onClick={() => onSelect('bill')} />
+          <NavItem label="Overview"   active={active === 'bill'}      onClick={() => onSelect('bill')} />
+          <NavItem label="Scorecard"  active={active === 'scorecard'} onClick={() => onSelect('scorecard')} />
         </NavSection>
       </nav>
 
