@@ -50,7 +50,7 @@ export default function Sidebar({ active, onSelect }) {
 
   return (
     <aside className="w-56 shrink-0 flex flex-col overflow-y-auto"
-      style={{ background: 'linear-gradient(180deg, #052e24 0%, #031a15 100%)', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
+      style={{ background: 'linear-gradient(180deg, #0f2460 0%, #0a1540 100%)', borderRight: '1px solid rgba(255,255,255,0.08)' }}>
 
       {/* Brand block */}
       <div className="px-4 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
