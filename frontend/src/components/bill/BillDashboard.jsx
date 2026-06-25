@@ -8,15 +8,24 @@ const SLATE = '#64748B'
 const ALL   = '__all__'
 const TOP_N = 3
 
+// Raw 7-bucket keys — used only for aggregation (reading API data)
 const BUCKET_COLS = [
-  { key: 'T0',     label: 'T0',   color: '#059669', desc: 'Same-day' },
-  { key: 'T1',     label: 'T1',   color: '#3B82F6', desc: '1 day' },
-  { key: 'T2',     label: 'T2',   color: '#7C3AED', desc: '2 days' },
-  { key: 'T3',     label: 'T3',   color: '#D97706', desc: '3-5 days' },
-  { key: 'T4',     label: 'T4',   color: '#EA580C', desc: '6-10 days' },
-  { key: 'T5',     label: 'T5',   color: '#DC2626', desc: '11-30 days' },
-  { key: 'T5Plus', label: 'T5+',  color: '#7F1D1D', desc: '31+ days' },
+  { key: 'T0' }, { key: 'T1' }, { key: 'T2' },
+  { key: 'T3' }, { key: 'T4' }, { key: 'T5' }, { key: 'T5Plus' },
 ]
+
+// Display buckets — T0+T1+T2 merged into one "< 3 Days" entry
+const DISPLAY_BUCKETS = [
+  { keys: ['T0','T1','T2'], label: '<3 Days', color: '#059669', desc: '0-2 days' },
+  { keys: ['T3'],           label: 'T3',      color: '#D97706', desc: '3-5 days' },
+  { keys: ['T4'],           label: 'T4',      color: '#EA580C', desc: '6-10 days' },
+  { keys: ['T5'],           label: 'T5',      color: '#DC2626', desc: '11-30 days' },
+  { keys: ['T5Plus'],       label: 'T5+',     color: '#7F1D1D', desc: '31+ days' },
+]
+
+function bucketVal(data, keys) {
+  return keys.reduce((s, k) => s + (data?.[`${k}_bills`] || 0), 0)
+}
 
 const STATUS_META = [
   { key: 'closed',    label: 'Closed',    color: '#059669', bg: '#ECFDF5' },
@@ -220,10 +229,10 @@ function BucketCard({ label, desc, count, total, color }) {
 // Full T0-T5+ breakdown in performer card
 function PerformerCard({ rank, data, isGood }) {
   const total = data.total_bills_token || 0
-  const buckets = BUCKET_COLS.map(b => ({
+  const buckets = DISPLAY_BUCKETS.map(b => ({
     ...b,
-    count: data[`${b.key}_bills`] || 0,
-    pct:   pct(data[`${b.key}_bills`] || 0, total),
+    count: bucketVal(data, b.keys),
+    pct:   pct(bucketVal(data, b.keys), total),
   }))
   const accentColor = isGood ? '#059669' : '#DC2626'
 
@@ -247,9 +256,9 @@ function PerformerCard({ rank, data, isGood }) {
       </div>
 
       {/* Bucket breakdown grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 4 }}>
         {buckets.map(b => (
-          <div key={b.key} style={{ textAlign: 'center', padding: '6px 4px', borderRadius: 6, background: b.color + '18' }}>
+          <div key={b.label} style={{ textAlign: 'center', padding: '6px 4px', borderRadius: 6, background: b.color + '18' }}>
             <p style={{ fontFamily: 'Rajdhani', fontSize: '0.7rem', fontWeight: 700, color: b.color, marginBottom: 1 }}>{b.label}</p>
             <p style={{ fontFamily: 'Rajdhani', fontSize: '1rem', fontWeight: 700, color: b.color, lineHeight: 1 }}>{b.pct}%</p>
             <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem', color: SLATE, marginTop: 2 }}>{fmt(b.count)}</p>
@@ -563,11 +572,11 @@ export default function BillDashboard({ data }) {
           {(delayData?.total_bills_token || 0) === 0 ? (
             <p style={{ fontFamily: 'Inter', fontSize: '0.8rem', color: SLATE, textAlign: 'center', padding: '16px 0' }}>No delay data for this selection</p>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 10 }}>
-              {BUCKET_COLS.map(b => (
-                <BucketCard key={b.key}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+              {DISPLAY_BUCKETS.map(b => (
+                <BucketCard key={b.label}
                   label={b.label} desc={b.desc} color={b.color}
-                  count={delayData?.[`${b.key}_bills`] || 0}
+                  count={bucketVal(delayData, b.keys)}
                   total={delayData?.total_bills_token || 0}
                 />
               ))}
