@@ -267,13 +267,13 @@ const PENDING_COLS = ['#', 'PAO', 'Pending', '% of Total', 'Distribution', 'Clos
 function PendingBreakdownTable({ paos }) {
   const sorted = useMemo(
     () => [...paos]
-      .filter(p => (p.pending || p.closed || p.returned || p.cancelled) > 0)
+      .filter(p => (p.pending || 0) > 0)
       .sort((a, b) => (b.pending || 0) - (a.pending || 0)),
     [paos]
   )
   const maxPending   = sorted[0]?.pending || 1
   const totalPending = sorted.reduce((s, p) => s + (p.pending || 0), 0)
-  const paosWithPending = sorted.filter(p => (p.pending || 0) > 0).length
+  const paosWithPending = sorted.length
 
   if (!sorted.length) return (
     <p style={{ fontFamily: 'Inter', fontSize: '0.8rem', color: SLATE, textAlign: 'center', padding: '16px 0' }}>No data</p>
