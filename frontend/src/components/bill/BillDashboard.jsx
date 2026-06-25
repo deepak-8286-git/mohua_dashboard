@@ -121,10 +121,15 @@ function combinePaos(normalPaos, ebillPaos) {
   const add = (p) => {
     const key = p.pao_code || p.pao
     if (!map[key]) {
-      map[key] = { pao: p.pao, pao_code: p.pao_code, total_bills_token: 0 }
+      map[key] = { pao: p.pao, pao_code: p.pao_code, total_bills_token: 0,
+        closed: 0, pending: 0, cancelled: 0, returned: 0 }
       BUCKET_COLS.forEach(b => { map[key][`${b.key}_bills`] = 0 })
     }
     map[key].total_bills_token += p.total_bills_token || 0
+    map[key].closed    += p.closed    || 0
+    map[key].pending   += p.pending   || 0
+    map[key].cancelled += p.cancelled || 0
+    map[key].returned  += p.returned  || 0
     BUCKET_COLS.forEach(b => { map[key][`${b.key}_bills`] += p[`${b.key}_bills`] || 0 })
   }
   normalPaos.forEach(add); ebillPaos.forEach(add)
@@ -241,6 +246,97 @@ function PerformerCard({ rank, data, isGood }) {
             <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem', color: SLATE, marginTop: 2 }}>{fmt(b.count)}</p>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Pending breakdown table ───────────────────────────────────────────────────
+
+const PENDING_COLS = ['#', 'PAO', 'Pending', '% of Total', 'Distribution', 'Closed', 'Returned', 'Cancelled']
+
+function PendingBreakdownTable({ paos }) {
+  const sorted = useMemo(
+    () => [...paos]
+      .filter(p => (p.pending || p.closed || p.returned || p.cancelled) > 0)
+      .sort((a, b) => (b.pending || 0) - (a.pending || 0)),
+    [paos]
+  )
+  const maxPending   = sorted[0]?.pending || 1
+  const totalPending = sorted.reduce((s, p) => s + (p.pending || 0), 0)
+  const paosWithPending = sorted.filter(p => (p.pending || 0) > 0).length
+
+  if (!sorted.length) return (
+    <p style={{ fontFamily: 'Inter', fontSize: '0.8rem', color: SLATE, textAlign: 'center', padding: '16px 0' }}>No data</p>
+  )
+
+  const GRID = '28px 1fr 90px 72px 140px 80px 80px 88px'
+
+  return (
+    <div style={{ background: '#FFFFFF', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', border: '1px solid #E2E8F0' }}>
+
+      {/* Summary banner */}
+      <div style={{ padding: '10px 18px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A', display: 'flex', alignItems: 'center', gap: 20 }}>
+        <span style={{ fontFamily: 'Rajdhani', fontSize: '1.1rem', fontWeight: 700, color: '#92400E' }}>
+          {fmt(totalPending)}
+        </span>
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.7rem', color: '#A16207' }}>
+          total pending bills across {paosWithPending} PAO{paosWithPending !== 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {/* Header row */}
+      <div style={{ display: 'grid', gridTemplateColumns: GRID, gap: 0, background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', padding: '8px 18px', alignItems: 'center' }}>
+        {PENDING_COLS.map(h => (
+          <span key={h} style={{ fontSize: '0.58rem', fontFamily: 'JetBrains Mono', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: (h === '#' || h === 'PAO' || h === 'Distribution') ? 'left' : 'right' }}>{h}</span>
+        ))}
+      </div>
+
+      {/* Data rows */}
+      <div style={{ maxHeight: 460, overflowY: 'auto' }}>
+        {sorted.map((p, i) => {
+          const pendingPct = pct(p.pending || 0, p.total_bills_token || 1)
+          const barW       = ((p.pending || 0) / maxPending) * 100
+          const isHighRisk = pendingPct > 25
+
+          return (
+            <div key={p.pao_code || p.pao}
+              style={{
+                display: 'grid', gridTemplateColumns: GRID, gap: 0,
+                padding: '9px 18px', alignItems: 'center',
+                borderBottom: '1px solid #F1F5F9',
+                background: i % 2 === 0 ? '#FFFFFF' : '#FAFBFC',
+                transition: 'background 0.1s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#FFFBEB'}
+              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#FFFFFF' : '#FAFBFC'}
+            >
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.65rem', color: '#94A3B8' }}>{i + 1}</span>
+
+              <span style={{ fontFamily: 'Inter', fontSize: '0.78rem', fontWeight: 500, color: '#1E293B', paddingRight: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {p.pao}
+              </span>
+
+              <span style={{ fontFamily: 'Rajdhani', fontSize: '1.1rem', fontWeight: 700, color: '#D97706', textAlign: 'right', paddingRight: 6 }}>
+                {fmt(p.pending || 0)}
+              </span>
+
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.72rem', textAlign: 'right', paddingRight: 8, color: isHighRisk ? '#DC2626' : SLATE, fontWeight: isHighRisk ? 700 : 400 }}>
+                {pendingPct}%
+              </span>
+
+              <div style={{ paddingRight: 14 }}>
+                <div style={{ height: 6, background: '#FEF3C7', borderRadius: 3, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${barW}%`, background: isHighRisk ? '#DC2626' : '#D97706', borderRadius: 3 }} />
+                </div>
+              </div>
+
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.7rem', color: '#059669', textAlign: 'right', paddingRight: 4 }}>{fmt(p.closed || 0)}</span>
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.7rem', color: '#DC2626', textAlign: 'right', paddingRight: 4 }}>{fmt(p.returned || 0)}</span>
+              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.7rem', color: '#3B82F6', textAlign: 'right' }}>{fmt(p.cancelled || 0)}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -438,6 +534,12 @@ export default function BillDashboard({ data }) {
               <StatusCard key={s.key} label={s.label} count={statusData[s.key]} color={s.color} bg={s.bg} />
             ))}
           </div>
+        </div>
+
+        {/* ── Pending breakdown by PAO (always from full dataset) ──────── */}
+        <div>
+          <SectionDivider>Pending Bills — PAO Breakdown</SectionDivider>
+          <PendingBreakdownTable paos={totalDelayPaos} />
         </div>
 
         {/* ── Delay Distribution (always shown, filtered by PAO) ────────── */}
