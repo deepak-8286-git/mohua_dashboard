@@ -38,7 +38,7 @@ function Dashboard({ onLogout }) {
 
       {/* ── Top header ───────────────────────────────────────────────── */}
       <header className="px-6 pt-4 pb-3 shrink-0 relative"
-        style={{ background: 'linear-gradient(160deg, #1e3a8a 0%, #1d4ed8 60%, #2563eb 100%)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
+        style={{ background: 'linear-gradient(160deg, #064e3b 0%, #065f46 60%, #047857 100%)', borderBottom: '1px solid rgba(255,255,255,0.12)' }}>
 
         {/* Sign out + last updated — top right */}
         <div className="absolute top-4 right-6 flex items-center gap-4">
