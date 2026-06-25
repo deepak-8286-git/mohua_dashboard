@@ -23,9 +23,10 @@ function aggregateScorecard(weeksList) {
   for (const w of weeksList) {
     for (const type of ['delay_normal', 'delay_ebill']) {
       for (const p of (w[type]?.paos ?? [])) {
-        totalBills  += p.total_bills_token || 0
+        // Use sum of T-buckets (disposed bills) not total_bills_token (includes pending)
+        totalBills  += BUCKETS.reduce((s, b) => s + (p[`${b}_bills`] || 0), 0)
         lt3Bills    += (p.T0_bills || 0) + (p.T1_bills || 0)
-        BUCKETS.forEach(b => { totalAmount += p[`${b}_amount`] || 0 })
+        totalAmount += BUCKETS.reduce((s, b) => s + (p[`${b}_amount`] || 0), 0)
         lt3Amount   += (p.T0_amount || 0) + (p.T1_amount || 0)
       }
     }
@@ -48,9 +49,9 @@ function aggregatePaoScores(weeksList) {
         const key = p.pao_code || p.pao
         if (!map[key]) map[key] = { pao: p.pao, pao_code: p.pao_code,
           totalBills: 0, lt3Bills: 0, totalAmount: 0, lt3Amount: 0 }
-        map[key].totalBills  += p.total_bills_token || 0
+        map[key].totalBills  += BUCKETS.reduce((s, b) => s + (p[`${b}_bills`] || 0), 0)
         map[key].lt3Bills    += (p.T0_bills || 0) + (p.T1_bills || 0)
-        BUCKETS.forEach(b => { map[key].totalAmount += p[`${b}_amount`] || 0 })
+        map[key].totalAmount += BUCKETS.reduce((s, b) => s + (p[`${b}_amount`] || 0), 0)
         map[key].lt3Amount   += (p.T0_amount || 0) + (p.T1_amount || 0)
       }
     }
@@ -114,30 +115,23 @@ function MetricCell({ label, value }) {
   )
 }
 
-function B4ScoreCard({ id, title, norm, totalLabel, totalValue, lt3Label, lt3Value, percentage, score, maxScore }) {
-  const passed   = percentage >= 95
-  const clr      = passed ? '#059669' : '#DC2626'
-  const tint     = clr + '20'
+function B4ScoreCard({ title, totalLabel, totalValue, lt3Label, lt3Value, percentage, score, maxScore }) {
+  const passed = percentage >= 95
+  const clr    = passed ? '#059669' : '#DC2626'
+  const tint   = clr + '20'
   return (
     <div style={{ background: `linear-gradient(145deg, ${tint} 0%, #FFFFFF 55%)`, borderRadius: 14, borderTop: `4px solid ${clr}`, padding: '20px 22px', boxShadow: '0 2px 10px rgba(0,0,0,0.09)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontFamily: 'Rajdhani', fontSize: '0.68rem', fontWeight: 700, color: clr, letterSpacing: '0.12em', textTransform: 'uppercase', background: clr + '15', padding: '2px 8px', borderRadius: 4 }}>{id}</span>
-          <p style={{ fontFamily: 'Rajdhani', fontSize: '1.0rem', fontWeight: 700, color: '#1E293B', marginTop: 6, lineHeight: 1.3 }}>{title}</p>
-          <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', color: SLATE, marginTop: 4 }}>Norm: {norm}</p>
-        </div>
+        <p style={{ fontFamily: 'Rajdhani', fontSize: '1.05rem', fontWeight: 700, color: '#1E293B', lineHeight: 1.3, flex: 1, paddingRight: 12 }}>{title}</p>
         <ScoreCircle score={score} max={maxScore} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         <MetricCell label={totalLabel} value={totalValue} />
         <MetricCell label={lt3Label}   value={lt3Value} />
-        <div style={{ background: clr + '18', borderRadius: 8, padding: '10px 14px', textAlign: 'center' }}>
+        <div style={{ background: clr + '18', borderRadius: 8, padding: '10px 14px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
           <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.56rem', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Disposal %</p>
           <p style={{ fontFamily: 'Rajdhani', fontSize: '2rem', fontWeight: 800, color: clr, lineHeight: 1 }}>{percentage}%</p>
-          <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.56rem', color: clr, marginTop: 5 }}>
-            {passed ? '✓ Meets ≥95% norm' : '✗ Below 95% norm'}
-          </p>
         </div>
       </div>
     </div>
@@ -295,9 +289,7 @@ export default function ScorecardDashboard({ data }) {
             <TotalScoreBanner score={total} max={4} />
             <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <B4ScoreCard
-                id="B4.1"
                 title="Number of Bills disposed in < 3 days"
-                norm="≥95% by count  →  2 marks; <95%  →  0 marks"
                 totalLabel="Total Bills Disposed"
                 totalValue={fmt(sc.totalBills)}
                 lt3Label="Bills in < 3 Days"
@@ -307,9 +299,7 @@ export default function ScorecardDashboard({ data }) {
                 maxScore={2}
               />
               <B4ScoreCard
-                id="B4.2"
                 title="Value of Bills disposed in < 3 days"
-                norm="≥95% by value  →  2 marks; <95%  →  0 marks"
                 totalLabel="Total Value Disposed"
                 totalValue={fmtCr(sc.totalAmount)}
                 lt3Label="Value in < 3 Days"
