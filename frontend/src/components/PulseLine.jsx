@@ -4,7 +4,7 @@ export default function PulseLine() {
       <div
         className="animate-pulse-line"
         style={{
-          borderTop: '2px dashed #00C851',
+          borderTop: '2px dashed #F9A55A',
           width: '100%',
         }}
       />
