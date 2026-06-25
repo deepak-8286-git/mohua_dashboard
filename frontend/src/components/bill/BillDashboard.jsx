@@ -138,19 +138,26 @@ function combinePaos(normalPaos, ebillPaos) {
 
 // ── Card components ───────────────────────────────────────────────────────────
 
-function SectionDivider({ children }) {
+function SectionDivider({ children, onToggle, open }) {
+  const isCollapsible = onToggle != null
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-      <span style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.12em', textTransform: 'uppercase', color: SLATE, fontWeight: 700, whiteSpace: 'nowrap' }}>{children}</span>
-      <div style={{ flex: 1, height: 1, background: '#E2E8F0' }} />
+    <div
+      onClick={isCollapsible ? onToggle : undefined}
+      style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: open !== false ? 14 : 0, cursor: isCollapsible ? 'pointer' : 'default', userSelect: 'none' }}
+    >
+      {isCollapsible && (
+        <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.65rem', color: SLATE, lineHeight: 1, transition: 'transform 0.2s', display: 'inline-block', transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+      )}
+      <span style={{ fontSize: '0.6rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#FFFFFF', fontWeight: 700, whiteSpace: 'nowrap', background: '#334155', padding: '3px 9px', borderRadius: 4 }}>{children}</span>
+      <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
     </div>
   )
 }
 
 function SummaryCard({ label, count, amount, countPct, amountPct, accent }) {
-  const tint = accent + '10'
+  const tint = accent + '22'
   return (
-    <div style={{ background: `linear-gradient(145deg, ${tint} 0%, #FFFFFF 55%)`, borderRadius: 12, borderTop: `4px solid ${accent}`, padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+    <div style={{ background: `linear-gradient(145deg, ${tint} 0%, #FFFFFF 55%)`, borderRadius: 12, borderTop: `4px solid ${accent}`, padding: '18px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.09)' }}>
       <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', textTransform: 'uppercase', color: SLATE, fontWeight: 600, marginBottom: 10 }}>{label}</p>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
         <span style={{ fontFamily: 'Rajdhani', fontSize: '2.1rem', fontWeight: 700, lineHeight: 1, color: accent }}>{fmt(count)}</span>
@@ -167,9 +174,9 @@ function SummaryCard({ label, count, amount, countPct, amountPct, accent }) {
 }
 
 function BillTypeCard({ label, count, amount, countPct, accent }) {
-  const tint = accent + '10'
+  const tint = accent + '22'
   return (
-    <div style={{ background: `linear-gradient(145deg, ${tint} 0%, #FFFFFF 55%)`, borderRadius: 10, borderTop: `4px solid ${accent}`, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+    <div style={{ background: `linear-gradient(145deg, ${tint} 0%, #FFFFFF 55%)`, borderRadius: 10, borderTop: `4px solid ${accent}`, padding: '16px 18px', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
       <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', textTransform: 'uppercase', color: SLATE, fontWeight: 600, marginBottom: 8 }}>{label}</p>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 6 }}>
         <p style={{ fontFamily: 'Rajdhani', fontSize: '1.75rem', fontWeight: 700, lineHeight: 1, color: accent }}>{fmt(count)}</p>
@@ -182,27 +189,28 @@ function BillTypeCard({ label, count, amount, countPct, accent }) {
   )
 }
 
-function StatusCard({ label, count, color, bg }) {
+function StatusCard({ label, count, color }) {
+  const tint = color + '22'
   return (
-    <div style={{ background: bg, borderRadius: 10, borderLeft: `5px solid ${color}`, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-      <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', textTransform: 'uppercase', color: SLATE, fontWeight: 600, marginBottom: 8 }}>{label}</p>
-      <p style={{ fontFamily: 'Rajdhani', fontSize: '1.75rem', fontWeight: 700, color, lineHeight: 1 }}>{fmt(count)}</p>
+    <div style={{ background: `linear-gradient(145deg, ${tint} 0%, #FFFFFF 58%)`, borderRadius: 12, borderTop: `4px solid ${color}`, padding: '18px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.09)' }}>
+      <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.08em', textTransform: 'uppercase', color: SLATE, fontWeight: 600, marginBottom: 10 }}>{label}</p>
+      <p style={{ fontFamily: 'Rajdhani', fontSize: '2.1rem', fontWeight: 700, color, lineHeight: 1 }}>{fmt(count)}</p>
     </div>
   )
 }
 
 function BucketCard({ label, desc, count, total, color }) {
   const percentage = pct(count, total)
-  const tint = color + '0d'
+  const tint = color + '20'
   return (
-    <div style={{ background: `linear-gradient(145deg, ${tint} 0%, #FFFFFF 60%)`, borderRadius: 10, padding: '13px 13px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: `1px solid ${color}22` }}>
+    <div style={{ background: `linear-gradient(160deg, ${tint} 0%, #FFFFFF 62%)`, borderRadius: 10, padding: '13px 13px', boxShadow: '0 2px 6px rgba(0,0,0,0.08)', border: `1px solid ${color}38` }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
         <span style={{ fontFamily: 'Rajdhani', fontSize: '1.05rem', fontWeight: 700, color }}>{label}</span>
         <span style={{ fontSize: '0.55rem', color: SLATE, fontFamily: 'JetBrains Mono' }}>{desc}</span>
       </div>
       <p style={{ fontFamily: 'Rajdhani', fontSize: '1.9rem', fontWeight: 700, color, lineHeight: 1 }}>{percentage}%</p>
       <p style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', color: SLATE, marginTop: 3 }}>{fmt(count)} bills</p>
-      <div style={{ marginTop: 10, height: 4, background: color + '22', borderRadius: 2 }}>
+      <div style={{ marginTop: 10, height: 4, background: color + '30', borderRadius: 2 }}>
         <div style={{ height: '100%', width: `${Math.min(100, percentage)}%`, background: color, borderRadius: 2 }} />
       </div>
     </div>
@@ -219,8 +227,9 @@ function PerformerCard({ rank, data, isGood }) {
   }))
   const accentColor = isGood ? '#059669' : '#DC2626'
 
+  const perfTint = accentColor + '14'
   return (
-    <div style={{ background: '#FFFFFF', borderRadius: 12, borderLeft: `5px solid ${accentColor}`, padding: '16px 18px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+    <div style={{ background: `linear-gradient(155deg, ${perfTint} 0%, #FFFFFF 55%)`, borderRadius: 12, borderLeft: `5px solid ${accentColor}`, padding: '16px 18px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
 
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
@@ -240,7 +249,7 @@ function PerformerCard({ rank, data, isGood }) {
       {/* Bucket breakdown grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4 }}>
         {buckets.map(b => (
-          <div key={b.key} style={{ textAlign: 'center', padding: '6px 4px', borderRadius: 6, background: b.color + '0c' }}>
+          <div key={b.key} style={{ textAlign: 'center', padding: '6px 4px', borderRadius: 6, background: b.color + '18' }}>
             <p style={{ fontFamily: 'Rajdhani', fontSize: '0.7rem', fontWeight: 700, color: b.color, marginBottom: 1 }}>{b.label}</p>
             <p style={{ fontFamily: 'Rajdhani', fontSize: '1rem', fontWeight: 700, color: b.color, lineHeight: 1 }}>{b.pct}%</p>
             <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem', color: SLATE, marginTop: 2 }}>{fmt(b.count)}</p>
@@ -356,9 +365,10 @@ export default function BillDashboard({ data }) {
     return out
   }, [weeks])
 
-  const [selMonth, setSelMonth] = useState(() => months[0] ?? '')
-  const [selWeek,  setSelWeek]  = useState(ALL)
-  const [selPao,   setSelPao]   = useState(ALL)
+  const [selMonth,    setSelMonth]    = useState(() => months[0] ?? '')
+  const [selWeek,     setSelWeek]     = useState(ALL)
+  const [selPao,      setSelPao]      = useState(ALL)
+  const [pendingOpen, setPendingOpen] = useState(true)
 
   const monthWeeks = useMemo(
     () => [...weeks].reverse().filter(w => getMonth(w.period) === selMonth),
@@ -531,15 +541,18 @@ export default function BillDashboard({ data }) {
           </SectionDivider>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14 }}>
             {STATUS_META.map(s => (
-              <StatusCard key={s.key} label={s.label} count={statusData[s.key]} color={s.color} bg={s.bg} />
+              <StatusCard key={s.key} label={s.label} count={statusData[s.key]} color={s.color} />
             ))}
           </div>
         </div>
 
-        {/* ── Pending breakdown by PAO (always from full dataset) ──────── */}
+        {/* ── Pending breakdown by PAO (collapsible) ───────────────────── */}
         <div>
-          <SectionDivider>Pending Bills — PAO Breakdown</SectionDivider>
-          <PendingBreakdownTable paos={totalDelayPaos} />
+          <SectionDivider
+            open={pendingOpen}
+            onToggle={() => setPendingOpen(v => !v)}
+          >Pending Bills — PAO Breakdown</SectionDivider>
+          {pendingOpen && <PendingBreakdownTable paos={totalDelayPaos} />}
         </div>
 
         {/* ── Delay Distribution (always shown, filtered by PAO) ────────── */}
