@@ -10,12 +10,12 @@ const TOP_N = 3
 
 const BUCKET_COLS = [
   { key: 'T0',     label: 'T0',   color: '#059669', desc: 'Same-day' },
-  { key: 'T1',     label: 'T1',   color: '#3B82F6', desc: '1-2 days' },
-  { key: 'T2',     label: 'T2',   color: '#7C3AED', desc: '3-5 days' },
-  { key: 'T3',     label: 'T3',   color: '#D97706', desc: '6-10 days' },
-  { key: 'T4',     label: 'T4',   color: '#EA580C', desc: '11-30 days' },
-  { key: 'T5',     label: 'T5',   color: '#DC2626', desc: '31-60 days' },
-  { key: 'T5Plus', label: 'T5+',  color: '#7F1D1D', desc: '60+ days' },
+  { key: 'T1',     label: 'T1',   color: '#3B82F6', desc: '1 day' },
+  { key: 'T2',     label: 'T2',   color: '#7C3AED', desc: '2 days' },
+  { key: 'T3',     label: 'T3',   color: '#D97706', desc: '3-5 days' },
+  { key: 'T4',     label: 'T4',   color: '#EA580C', desc: '6-10 days' },
+  { key: 'T5',     label: 'T5',   color: '#DC2626', desc: '11-30 days' },
+  { key: 'T5Plus', label: 'T5+',  color: '#7F1D1D', desc: '31+ days' },
 ]
 
 const STATUS_META = [

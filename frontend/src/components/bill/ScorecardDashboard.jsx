@@ -25,9 +25,9 @@ function aggregateScorecard(weeksList) {
       for (const p of (w[type]?.paos ?? [])) {
         // Use sum of T-buckets (disposed bills) not total_bills_token (includes pending)
         totalBills  += BUCKETS.reduce((s, b) => s + (p[`${b}_bills`] || 0), 0)
-        lt3Bills    += (p.T0_bills || 0) + (p.T1_bills || 0)
+        lt3Bills    += (p.T0_bills || 0) + (p.T1_bills || 0) + (p.T2_bills || 0)
         totalAmount += BUCKETS.reduce((s, b) => s + (p[`${b}_amount`] || 0), 0)
-        lt3Amount   += (p.T0_amount || 0) + (p.T1_amount || 0)
+        lt3Amount   += (p.T0_amount || 0) + (p.T1_amount || 0) + (p.T2_amount || 0)
       }
     }
   }
@@ -50,9 +50,9 @@ function aggregatePaoScores(weeksList) {
         if (!map[key]) map[key] = { pao: p.pao, pao_code: p.pao_code,
           totalBills: 0, lt3Bills: 0, totalAmount: 0, lt3Amount: 0 }
         map[key].totalBills  += BUCKETS.reduce((s, b) => s + (p[`${b}_bills`] || 0), 0)
-        map[key].lt3Bills    += (p.T0_bills || 0) + (p.T1_bills || 0)
+        map[key].lt3Bills    += (p.T0_bills || 0) + (p.T1_bills || 0) + (p.T2_bills || 0)
         map[key].totalAmount += BUCKETS.reduce((s, b) => s + (p[`${b}_amount`] || 0), 0)
-        map[key].lt3Amount   += (p.T0_amount || 0) + (p.T1_amount || 0)
+        map[key].lt3Amount   += (p.T0_amount || 0) + (p.T1_amount || 0) + (p.T2_amount || 0)
       }
     }
   }
@@ -289,7 +289,7 @@ export default function ScorecardDashboard({ data }) {
             <TotalScoreBanner score={total} max={4} />
             <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <B4ScoreCard
-                title="Number of Bills disposed in < 3 days"
+                title="Number of Bills disposed in < 3 days (T0 + T1 + T2)"
                 totalLabel="Total Bills Disposed"
                 totalValue={fmt(sc.totalBills)}
                 lt3Label="Bills in < 3 Days"
@@ -299,7 +299,7 @@ export default function ScorecardDashboard({ data }) {
                 maxScore={2}
               />
               <B4ScoreCard
-                title="Value of Bills disposed in < 3 days"
+                title="Value of Bills disposed in < 3 days (T0 + T1 + T2)"
                 totalLabel="Total Value Disposed"
                 totalValue={fmtCr(sc.totalAmount)}
                 lt3Label="Value in < 3 Days"
