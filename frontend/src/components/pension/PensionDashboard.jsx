@@ -6,7 +6,12 @@ const RED     = '#DC2626'
 const AMBER   = '#D97706'
 const GREEN   = '#059669'
 const BLUE    = '#3B82F6'
-const ALL     = '__all__'
+const ALL = '__all__'
+
+function getMonth(period) {
+  const m = period?.match(/^([A-Za-z]+)\s+[\d\s–\-]+,?\s*(\d{4})/)
+  return m ? `${m[1]} ${m[2]}` : (period?.split(' ')[0] ?? '')
+}
 
 const STATUS_META = {
   critical: { label: 'Critical',  color: RED,   bg: '#FEF2F2', desc: 'EOS passed, EPPO not submitted' },
@@ -238,23 +243,42 @@ function PaoBreakdown({ cases }) {
 }
 
 export default function PensionDashboard({ data }) {
-  const weeks   = data?.weeks ?? []
-  const periods = useMemo(() => [ALL, ...weeks.map(w => w.period)], [weeks])
-  const [selPeriod, setSelPeriod] = useState(ALL)
+  const weeks = data?.weeks ?? []
 
-  const allCases = useMemo(() => {
-    const src = selPeriod === ALL ? weeks : weeks.filter(w => w.period === selPeriod)
-    // de-duplicate by name+pao+eos when viewing all periods
+  const months = useMemo(() => {
     const seen = new Set()
     const out = []
-    for (const w of src) {
+    ;[...weeks].reverse().forEach(w => {
+      const m = getMonth(w.period)
+      if (!seen.has(m)) { seen.add(m); out.push(m) }
+    })
+    return out
+  }, [weeks])
+
+  const [selMonth, setSelMonth] = useState(() => months[0] ?? '')
+  const [selWeek,  setSelWeek]  = useState(ALL)
+
+  const monthWeeks = useMemo(
+    () => [...weeks].reverse().filter(w => getMonth(w.period) === selMonth),
+    [weeks, selMonth]
+  )
+
+  const activeWeeks = useMemo(
+    () => selWeek === ALL ? monthWeeks : monthWeeks.filter(w => w.period === selWeek),
+    [monthWeeks, selWeek]
+  )
+
+  const allCases = useMemo(() => {
+    const seen = new Set()
+    const out = []
+    for (const w of activeWeeks) {
       for (const c of w.cases) {
         const key = `${c.name}|${c.pao}|${c.end_of_service}`
         if (!seen.has(key)) { seen.add(key); out.push(c) }
       }
     }
     return out
-  }, [weeks, selPeriod])
+  }, [activeWeeks])
 
   const critical = useMemo(() => allCases.filter(c => c.status === 'critical')
     .sort((a, b) => new Date(a.end_of_service) - new Date(b.end_of_service)), [allCases])
@@ -273,17 +297,22 @@ export default function PensionDashboard({ data }) {
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#F1F5F9' }}>
 
-      {/* Period filter */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-        <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
-          textTransform: 'uppercase', color: SLATE }}>Period</span>
-        <select value={selPeriod} onChange={e => setSelPeriod(e.target.value)}
-          style={{ fontFamily: 'Inter', fontSize: '0.8rem', padding: '6px 10px',
-            border: '1px solid #CBD5E1', borderRadius: 6, background: '#fff', color: NAVY, cursor: 'pointer' }}>
-          {periods.map(p => (
-            <option key={p} value={p}>{p === ALL ? `All periods (${weeks.length} reports)` : p}</option>
-          ))}
-        </select>
+      {/* Month + Week filter */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span className="filter-label">Month</span>
+          <select className="filter-select" value={selMonth}
+            onChange={e => { setSelMonth(e.target.value); setSelWeek(ALL) }}>
+            {months.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span className="filter-label">Week</span>
+          <select className="filter-select" value={selWeek} onChange={e => setSelWeek(e.target.value)}>
+            <option value={ALL}>All weeks ({monthWeeks.length} reports)</option>
+            {monthWeeks.map(w => <option key={w.period} value={w.period}>{w.period}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* KPI row */}
