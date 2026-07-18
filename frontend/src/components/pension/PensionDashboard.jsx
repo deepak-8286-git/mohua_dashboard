@@ -263,22 +263,14 @@ export default function PensionDashboard({ data }) {
     [weeks, selMonth]
   )
 
-  const activeWeeks = useMemo(
-    () => selWeek === ALL ? monthWeeks : monthWeeks.filter(w => w.period === selWeek),
-    [monthWeeks, selWeek]
-  )
+  // Each pension report is a full point-in-time snapshot — "all weeks" shows
+  // the most recent snapshot (latest fortnight), not a deduplicated blend.
+  const activeWeek = useMemo(() => {
+    if (selWeek === ALL) return monthWeeks[0] ?? null   // monthWeeks is newest-first
+    return monthWeeks.find(w => w.period === selWeek) ?? null
+  }, [monthWeeks, selWeek])
 
-  const allCases = useMemo(() => {
-    const seen = new Set()
-    const out = []
-    for (const w of activeWeeks) {
-      for (const c of w.cases) {
-        const key = `${c.name}|${c.pao}|${c.end_of_service}`
-        if (!seen.has(key)) { seen.add(key); out.push(c) }
-      }
-    }
-    return out
-  }, [activeWeeks])
+  const allCases = useMemo(() => activeWeek?.cases ?? [], [activeWeek])
 
   const critical = useMemo(() => allCases.filter(c => c.status === 'critical')
     .sort((a, b) => new Date(a.end_of_service) - new Date(b.end_of_service)), [allCases])
@@ -309,7 +301,7 @@ export default function PensionDashboard({ data }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span className="filter-label">Week</span>
           <select className="filter-select" value={selWeek} onChange={e => setSelWeek(e.target.value)}>
-            <option value={ALL}>All weeks ({monthWeeks.length} reports)</option>
+            <option value={ALL}>Latest report ({monthWeeks[0]?.period ?? '—'})</option>
             {monthWeeks.map(w => <option key={w.period} value={w.period}>{w.period}</option>)}
           </select>
         </div>
