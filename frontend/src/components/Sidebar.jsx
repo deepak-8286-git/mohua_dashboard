@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, BarChart2, FileText } from 'lucide-react'
+import { ChevronDown, ChevronRight, BarChart2, FileText, Users } from 'lucide-react'
 
 const AMBER = '#F9A55A'
 
@@ -45,8 +45,9 @@ function NavItem({ label, active, onClick }) {
 }
 
 export default function Sidebar({ active, onSelect }) {
-  const [iawOpen, setIawOpen]   = useState(true)
-  const [billOpen, setBillOpen] = useState(true)
+  const [iawOpen,     setIawOpen]     = useState(true)
+  const [billOpen,    setBillOpen]    = useState(true)
+  const [pensionOpen, setPensionOpen] = useState(true)
 
   return (
     <aside className="w-56 shrink-0 flex flex-col overflow-y-auto"
@@ -82,7 +83,15 @@ export default function Sidebar({ active, onSelect }) {
         >
           <NavItem label="Overview"   active={active === 'bill'}      onClick={() => onSelect('bill')} />
           <NavItem label="Scorecard"  active={active === 'scorecard'} onClick={() => onSelect('scorecard')} />
-          <NavItem label="Pension"    active={active === 'pension'}   onClick={() => onSelect('pension')} />
+        </NavSection>
+
+        <NavSection
+          label="Pension"
+          icon={Users}
+          isOpen={pensionOpen}
+          onToggle={() => setPensionOpen(v => !v)}
+        >
+          <NavItem label="Overview" active={active === 'pension'} onClick={() => onSelect('pension')} />
         </NavSection>
       </nav>
 
