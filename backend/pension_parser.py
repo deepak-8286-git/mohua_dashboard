@@ -36,8 +36,10 @@ def _classify(eos, physical, eppo_submitted):
 
     if eos_past and eppo_submitted is None:
         status = "critical"
+    elif not eos_past and physical and eppo_submitted is None:
+        # Physical file received but EPPO not submitted yet — at risk
+        status = "at_risk"
     elif eppo_submitted and eos and eppo_submitted <= eos:
-        # EPPO submitted before EOS — check if physical was on time
         if physical_delay_days is not None and physical_delay_days > 0:
             status = "delayed"
         else:
@@ -45,7 +47,7 @@ def _classify(eos, physical, eppo_submitted):
     elif eppo_submitted and eos and eppo_submitted > eos:
         status = "delayed"
     elif not eos_past:
-        status = "pending"
+        status = "pending"   # nothing received, EOS upcoming
     else:
         status = "critical"
 
