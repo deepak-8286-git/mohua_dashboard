@@ -3,8 +3,9 @@ import { useEffect, useRef } from 'react'
 
 const fetcher = (path) => fetch(path).then(r => r.json())
 
-export const useIAW  = () => useQuery({ queryKey: ['iaw'],  queryFn: () => fetcher('/api/iaw'),  staleTime: 60_000 })
-export const useBill = () => useQuery({ queryKey: ['bill'], queryFn: () => fetcher('/api/bill'), staleTime: 60_000 })
+export const useIAW     = () => useQuery({ queryKey: ['iaw'],     queryFn: () => fetcher('/api/iaw'),     staleTime: 60_000 })
+export const useBill    = () => useQuery({ queryKey: ['bill'],    queryFn: () => fetcher('/api/bill'),    staleTime: 60_000 })
+export const usePension = () => useQuery({ queryKey: ['pension'], queryFn: () => fetcher('/api/pension'), staleTime: 60_000 })
 
 // Poll /api/last-updated every 60s; invalidate data queries when timestamp changes
 export function useAutoRefresh() {

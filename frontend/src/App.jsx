@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useIAW, useBill, useAutoRefresh } from './api/client'
+import { useIAW, useBill, usePension, useAutoRefresh } from './api/client'
 import Sidebar from './components/Sidebar'
 import PulseLine from './components/PulseLine'
 import LoginPage from './components/LoginPage'
 import IAWDashboard from './components/iaw/IAWDashboard'
 import BillDashboard from './components/bill/BillDashboard'
 import ScorecardDashboard from './components/bill/ScorecardDashboard'
+import PensionDashboard from './components/pension/PensionDashboard'
 
 function Spinner() {
   return (
@@ -25,8 +26,9 @@ function ErrorMsg({ msg }) {
 
 function Dashboard({ onLogout }) {
   const [active, setActive] = useState('bill')
-  const iaw  = useIAW()
-  const bill = useBill()
+  const iaw     = useIAW()
+  const bill    = useBill()
+  const pension = usePension()
   useAutoRefresh()
 
   const lastUpdated = iaw.dataUpdatedAt
@@ -99,6 +101,11 @@ function Dashboard({ onLogout }) {
             bill.isLoading ? <Spinner /> :
             bill.isError   ? <ErrorMsg msg={bill.error?.message} /> :
             <ScorecardDashboard data={bill.data} />
+          )}
+          {active === 'pension' && (
+            pension.isLoading ? <Spinner /> :
+            pension.isError   ? <ErrorMsg msg={pension.error?.message} /> :
+            <PensionDashboard data={pension.data} />
           )}
         </main>
       </div>

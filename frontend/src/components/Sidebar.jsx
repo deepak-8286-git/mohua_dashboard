@@ -82,6 +82,7 @@ export default function Sidebar({ active, onSelect }) {
         >
           <NavItem label="Overview"   active={active === 'bill'}      onClick={() => onSelect('bill')} />
           <NavItem label="Scorecard"  active={active === 'scorecard'} onClick={() => onSelect('scorecard')} />
+          <NavItem label="Pension"    active={active === 'pension'}   onClick={() => onSelect('pension')} />
         </NavSection>
       </nav>
 
