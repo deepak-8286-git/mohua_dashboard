@@ -256,19 +256,17 @@ export default function PensionDashboard({ data }) {
   }, [weeks])
 
   const [selMonth, setSelMonth] = useState(() => months[0] ?? '')
-  const [selWeek,  setSelWeek]  = useState(ALL)
+  const [selWeek,  setSelWeek]  = useState(() => weeks.length ? [...weeks].reverse()[0]?.period ?? '' : '')
 
   const monthWeeks = useMemo(
     () => [...weeks].reverse().filter(w => getMonth(w.period) === selMonth),
     [weeks, selMonth]
   )
 
-  // Each pension report is a full point-in-time snapshot — "all weeks" shows
-  // the most recent snapshot (latest fortnight), not a deduplicated blend.
-  const activeWeek = useMemo(() => {
-    if (selWeek === ALL) return monthWeeks[0] ?? null   // monthWeeks is newest-first
-    return monthWeeks.find(w => w.period === selWeek) ?? null
-  }, [monthWeeks, selWeek])
+  const activeWeek = useMemo(
+    () => monthWeeks.find(w => w.period === selWeek) ?? monthWeeks[0] ?? null,
+    [monthWeeks, selWeek]
+  )
 
   const allCases = useMemo(() => activeWeek?.cases ?? [], [activeWeek])
 
@@ -294,14 +292,17 @@ export default function PensionDashboard({ data }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span className="filter-label">Month</span>
           <select className="filter-select" value={selMonth}
-            onChange={e => { setSelMonth(e.target.value); setSelWeek(ALL) }}>
+            onChange={e => {
+              const newMonthWeeks = [...weeks].reverse().filter(w => getMonth(w.period) === e.target.value)
+              setSelMonth(e.target.value)
+              setSelWeek(newMonthWeeks[0]?.period ?? '')
+            }}>
             {months.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span className="filter-label">Week</span>
           <select className="filter-select" value={selWeek} onChange={e => setSelWeek(e.target.value)}>
-            <option value={ALL}>Latest report ({monthWeeks[0]?.period ?? '—'})</option>
             {monthWeeks.map(w => <option key={w.period} value={w.period}>{w.period}</option>)}
           </select>
         </div>
