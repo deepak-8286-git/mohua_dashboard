@@ -1,47 +1,30 @@
 import { useState, useMemo } from 'react'
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell, LabelList,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+  ResponsiveContainer, LineChart, Line, LabelList,
 } from 'recharts'
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
-const NAVY   = '#1E293B'
-const SLATE  = '#64748B'
-const RED    = '#DC2626'
-const GREEN  = '#059669'
-const BLUE   = '#3B82F6'
-const AMBER  = '#D97706'
-const PURPLE = '#7C3AED'
-const TEAL   = '#0D9488'
+const NAVY         = '#1E293B'
+const SLATE        = '#64748B'
+const RED          = '#DC2626'
+const GREEN        = '#059669'
+const BLUE         = '#3B82F6'
+const AMBER        = '#D97706'
+const PURPLE       = '#7C3AED'
+const TEAL         = '#0D9488'
+const ORANGE       = '#EA580C'
 
 const MSE_COLOR    = BLUE
 const OTHERS_COLOR = PURPLE
-const TOTAL_COLOR  = TEAL
+const BUCKET_COLORS = [GREEN, AMBER, ORANGE, RED, PURPLE]
 
 function fmtCr(v) {
   if (v === null || v === undefined) return '—'
   return `₹${Number(v).toFixed(2)} Cr`
 }
-function fmtCrShort(v) {
-  if (!v) return '0'
-  return `₹${Number(v).toFixed(1)}`
-}
 
 // ── Shared UI atoms ───────────────────────────────────────────────────────────
-function Tab({ label, active, onClick }) {
-  return (
-    <button onClick={onClick} style={{
-      fontFamily: 'JetBrains Mono', fontSize: '0.7rem', letterSpacing: '0.08em',
-      textTransform: 'uppercase', padding: '8px 18px', border: 'none',
-      borderBottom: active ? `2px solid ${TEAL}` : '2px solid transparent',
-      background: 'transparent', color: active ? TEAL : SLATE,
-      fontWeight: active ? 700 : 400, cursor: 'pointer', transition: 'all 0.15s',
-    }}>
-      {label}
-    </button>
-  )
-}
-
 function SectionLabel({ children }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -88,6 +71,27 @@ function MonthSelector({ months, sel, onChange, label }) {
       <select className="filter-select" value={sel} onChange={e => onChange(e.target.value)}>
         {months.map(m => <option key={m} value={m}>{m}</option>)}
       </select>
+    </div>
+  )
+}
+
+function ChartCard({ title, height = 300, children, legend }) {
+  return (
+    <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px',
+      border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
+      <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
+        textTransform: 'uppercase', color: SLATE, marginBottom: 4 }}>{title}</p>
+      {legend && (
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
+          {legend.map(([l, c]) => (
+            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: c }} />
+              <span style={{ fontFamily: 'Inter', fontSize: '0.68rem', color: SLATE }}>{l}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <ResponsiveContainer width="100%" height={height}>{children}</ResponsiveContainer>
     </div>
   )
 }
@@ -148,103 +152,124 @@ function PerformerCards({ currentOrgs, prevOrgs }) {
   )
 }
 
-// ── Overview tab ──────────────────────────────────────────────────────────────
-function OverviewTab({ month, prevMonth }) {
-  const orgs    = month?.dues?.orgs ?? []
-  const prevOrgs = prevMonth?.dues?.orgs ?? []
-  const prevMap  = Object.fromEntries(prevOrgs.map(o => [o.org, o]))
+// ── Overview — cross-month trend view ────────────────────────────────────────
+function OverviewPage({ months }) {
+  const latestMonth = months[months.length - 1]
+  const prevMonth   = months.length > 1 ? months[months.length - 2] : null
 
-  const grandTotal = orgs.reduce((s, o) => s + o.total, 0)
-  const grandMse   = orgs.reduce((s, o) => s + o.mse,   0)
-  const grandOther = orgs.reduce((s, o) => s + o.others, 0)
+  const latestOrgs = latestMonth?.dues?.orgs ?? []
+  const prevOrgs   = prevMonth?.dues?.orgs  ?? []
+
+  const grandTotal = latestOrgs.reduce((s, o) => s + o.total, 0)
+  const grandMse   = latestOrgs.reduce((s, o) => s + o.mse,   0)
+  const grandOther = latestOrgs.reduce((s, o) => s + o.others, 0)
   const prevGrand  = prevOrgs.reduce((s, o) => s + o.total, 0)
 
-  const chartData = [...orgs]
+  // Trend across all months
+  const trendData = months.map(m => ({
+    month: m.month,
+    total: +(m.dues?.orgs?.reduce((s, o) => s + o.total, 0) ?? 0).toFixed(2),
+    mse:   +(m.dues?.orgs?.reduce((s, o) => s + o.mse,   0) ?? 0).toFixed(2),
+    others:+(m.dues?.orgs?.reduce((s, o) => s + o.others, 0) ?? 0).toFixed(2),
+  }))
+
+  // Org breakdown — latest month grouped bars
+  const orgChartData = [...latestOrgs]
     .sort((a, b) => b.total - a.total)
     .slice(0, 12)
-    .map(o => ({ name: o.org.length > 18 ? o.org.slice(0, 18) + '…' : o.org, mse: +o.mse.toFixed(2), others: +o.others.toFixed(2), total: +o.total.toFixed(2) }))
+    .map(o => ({
+      name: o.org.length > 18 ? o.org.slice(0, 18) + '…' : o.org,
+      mse: +o.mse.toFixed(2), others: +o.others.toFixed(2), total: +o.total.toFixed(2),
+    }))
 
-  const cols = prevOrgs.length
-    ? '1fr 100px 100px 100px 110px'
-    : '1fr 100px 100px 100px'
+  const prevMap = Object.fromEntries(prevOrgs.map(o => [o.org, o]))
+  const cols = prevOrgs.length ? '1fr 100px 100px 100px 110px' : '1fr 100px 100px 100px'
 
   return (
     <div>
-      {/* KPIs */}
+      {/* KPIs for latest month */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        <KpiCard label="Total Pendency"   value={fmtCr(grandTotal)} color={TEAL}
-          sub={prevGrand ? `Prev: ${fmtCr(prevGrand)}` : undefined} />
-        <KpiCard label="MSE Dues"         value={fmtCr(grandMse)}   color={MSE_COLOR}
-          sub={`${((grandMse/grandTotal)*100).toFixed(1)}% of total`} />
-        <KpiCard label="Others Dues"      value={fmtCr(grandOther)} color={OTHERS_COLOR}
-          sub={`${((grandOther/grandTotal)*100).toFixed(1)}% of total`} />
-        <KpiCard label="Organisations"    value={orgs.length}        color={AMBER} />
+        <KpiCard label={`Total Pendency — ${latestMonth?.month}`} value={fmtCr(grandTotal)}
+          color={TEAL} sub={prevGrand ? `Prev: ${fmtCr(prevGrand)}` : undefined} />
+        <KpiCard label="MSE Dues" value={fmtCr(grandMse)} color={MSE_COLOR}
+          sub={`${grandTotal ? ((grandMse/grandTotal)*100).toFixed(1) : 0}% of total`} />
+        <KpiCard label="Others Dues" value={fmtCr(grandOther)} color={OTHERS_COLOR}
+          sub={`${grandTotal ? ((grandOther/grandTotal)*100).toFixed(1) : 0}% of total`} />
+        <KpiCard label="Organisations" value={latestOrgs.length} color={AMBER} />
         {prevGrand > 0 && (
           <KpiCard
             label="MoM Change"
             value={`${grandTotal - prevGrand >= 0 ? '+' : ''}${fmtCr(grandTotal - prevGrand)}`}
             color={grandTotal <= prevGrand ? GREEN : RED}
-            sub={prevGrand ? `${(((grandTotal-prevGrand)/prevGrand)*100).toFixed(1)}%` : ''}
+            sub={`${(((grandTotal - prevGrand) / prevGrand) * 100).toFixed(1)}%`}
           />
         )}
       </div>
 
-      {/* Performers */}
-      <PerformerCards currentOrgs={orgs} prevOrgs={prevOrgs} />
+      {/* Month-over-Month trend chart */}
+      <ChartCard title="Month-over-Month Trend (₹ Cr)"
+        legend={[['Total', '#CBD5E1'], ['MSE', MSE_COLOR], ['Others', OTHERS_COLOR]]}
+        height={280}>
+        <BarChart data={trendData} margin={{ top: 20, right: 16, left: 0, bottom: 10 }}
+          barCategoryGap="35%" barGap={2}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+          <XAxis dataKey="month" tick={{ fontFamily: 'Inter', fontSize: 11, fill: SLATE }}
+            axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
+            axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
+            border: 'none', borderRadius: 6, color: '#fff' }}
+            formatter={(v, name) => [`₹${v} Cr`, name]} />
+          <Bar dataKey="total" name="Total" fill="#CBD5E1" radius={[3,3,0,0]}>
+            <LabelList dataKey="total" position="top"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
+              formatter={v => `₹${v}`} />
+          </Bar>
+          <Bar dataKey="mse"    name="MSE"    fill={MSE_COLOR}    radius={[3,3,0,0]} />
+          <Bar dataKey="others" name="Others" fill={OTHERS_COLOR} radius={[3,3,0,0]} />
+        </BarChart>
+      </ChartCard>
 
-      {/* Bar chart — total + grouped breakdown */}
-      <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px',
-        border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
-        <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
-          textTransform: 'uppercase', color: SLATE, marginBottom: 4 }}>
-          Organisation-wise Pendency (₹ Cr) — Top 12
-        </p>
-        <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
-          {[['Total', '#CBD5E1'], ['MSE', MSE_COLOR], ['Others', OTHERS_COLOR]].map(([l, c]) => (
-            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: c }} />
-              <span style={{ fontFamily: 'Inter', fontSize: '0.68rem', color: SLATE }}>{l}</span>
-            </div>
-          ))}
-        </div>
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 70 }}
-            barCategoryGap="30%" barGap={2}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontFamily: 'Inter', fontSize: 10, fill: SLATE }}
-              axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} />
-            <YAxis tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
-              axisLine={false} tickLine={false} />
-            <Tooltip
-              contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
-                border: 'none', borderRadius: 6, color: '#fff' }}
-              formatter={(v, name) => [`₹${v} Cr`, name]}
-            />
-            <Bar dataKey="total" name="Total" fill="#CBD5E1" radius={[3,3,0,0]}>
-              <LabelList dataKey="total" position="top"
-                style={{ fontFamily: 'JetBrains Mono', fontSize: 9, fill: SLATE }}
-                formatter={v => `₹${v}`} />
-            </Bar>
-            <Bar dataKey="mse"    name="MSE"    fill={MSE_COLOR}    radius={[3,3,0,0]} />
-            <Bar dataKey="others" name="Others" fill={OTHERS_COLOR} radius={[3,3,0,0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {/* Top performers vs previous month */}
+      <PerformerCards currentOrgs={latestOrgs} prevOrgs={prevOrgs} />
 
-      {/* Table */}
-      <SectionLabel>Organisation-wise Dues</SectionLabel>
+      {/* Org-level breakdown for latest month */}
+      <ChartCard title={`Organisation-wise Pendency — ${latestMonth?.month} (₹ Cr) — Top 12`}
+        legend={[['Total', '#CBD5E1'], ['MSE', MSE_COLOR], ['Others', OTHERS_COLOR]]}
+        height={320}>
+        <BarChart data={orgChartData} margin={{ top: 20, right: 8, left: 0, bottom: 70 }}
+          barCategoryGap="30%" barGap={2}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+          <XAxis dataKey="name" tick={{ fontFamily: 'Inter', fontSize: 10, fill: SLATE }}
+            axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} />
+          <YAxis tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
+            axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
+            border: 'none', borderRadius: 6, color: '#fff' }}
+            formatter={(v, name) => [`₹${v} Cr`, name]} />
+          <Bar dataKey="total" name="Total" fill="#CBD5E1" radius={[3,3,0,0]}>
+            <LabelList dataKey="total" position="top"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: 9, fill: SLATE }}
+              formatter={v => `₹${v}`} />
+          </Bar>
+          <Bar dataKey="mse"    name="MSE"    fill={MSE_COLOR}    radius={[3,3,0,0]} />
+          <Bar dataKey="others" name="Others" fill={OTHERS_COLOR} radius={[3,3,0,0]} />
+        </BarChart>
+      </ChartCard>
+
+      {/* Table with all months as columns */}
+      <SectionLabel>Organisation-wise Dues — {latestMonth?.month}</SectionLabel>
       <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: cols, background: NAVY,
-          padding: '8px 12px', gap: 8 }}>
-          {['Organisation','MSE (Cr)','Others (Cr)','Total (Cr)', prevOrgs.length ? 'MoM Δ' : null]
+        <div style={{ display: 'grid', gridTemplateColumns: cols, background: NAVY, padding: '8px 12px', gap: 8 }}>
+          {['Organisation', 'MSE (Cr)', 'Others (Cr)', 'Total (Cr)', prevOrgs.length ? 'MoM Δ' : null]
             .filter(Boolean).map(h => (
             <span key={h} style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem',
               letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)',
               textAlign: h !== 'Organisation' ? 'right' : 'left' }}>{h}</span>
           ))}
         </div>
-        {[...orgs].sort((a,b) => b.total - a.total).map((o, i) => {
-          const prev = prevMap[o.org]
+        {[...latestOrgs].sort((a, b) => b.total - a.total).map((o, i) => {
+          const prev  = prevMap[o.org]
           const delta = prev ? o.total - prev.total : null
           return (
             <div key={i} style={{ display: 'grid', gridTemplateColumns: cols,
@@ -263,73 +288,93 @@ function OverviewTab({ month, prevMonth }) {
   )
 }
 
-// ── Office drill-down tab ─────────────────────────────────────────────────────
-function OfficeTab({ month, prevMonth }) {
-  const orgList = month?.dues?.orgs ?? []
-  const officesByOrg = month?.dues?.offices_by_org ?? {}
+// ── Office drill-down page ────────────────────────────────────────────────────
+function OfficePage({ months }) {
+  const monthLabels = months.map(m => m.month)
+  const [selMonth, setSelMonth] = useState(monthLabels[monthLabels.length - 1] ?? '')
+
+  const currentMonth = months.find(m => m.month === selMonth) ?? null
+  const currentIdx   = months.findIndex(m => m.month === selMonth)
+  const prevMonth    = currentIdx > 0 ? months[currentIdx - 1] : null
+
+  const orgList          = currentMonth?.dues?.orgs ?? []
+  const officesByOrg     = currentMonth?.dues?.offices_by_org ?? {}
   const prevOfficesByOrg = prevMonth?.dues?.offices_by_org ?? {}
 
   const [selOrg, setSelOrg] = useState(() => orgList[0]?.org ?? '')
 
-  const offices = officesByOrg[selOrg] ?? []
+  const offices     = officesByOrg[selOrg] ?? []
   const prevOffices = prevOfficesByOrg[selOrg] ?? []
-  const prevMap = Object.fromEntries(prevOffices.map(o => [o.office, o]))
+  const prevMap     = Object.fromEntries(prevOffices.map(o => [o.office, o]))
 
   const orgTotal  = offices.reduce((s, o) => s + o.total, 0)
   const orgMse    = offices.reduce((s, o) => s + o.mse, 0)
   const orgOthers = offices.reduce((s, o) => s + o.others, 0)
 
   const hasPrev = prevOffices.length > 0
-  const cols = hasPrev ? '1fr 100px 100px 100px 110px' : '1fr 100px 100px 100px'
+  const cols    = hasPrev ? '1fr 100px 100px 100px 110px' : '1fr 100px 100px 100px'
 
-  const chartData = [...offices].sort((a,b) => b.total-a.total).slice(0,15)
-    .map(o => ({ name: o.office.length > 22 ? o.office.slice(0,22)+'…' : o.office,
-      mse: +o.mse.toFixed(2), others: +o.others.toFixed(2) }))
+  const chartData = [...offices].sort((a, b) => b.total - a.total).slice(0, 15)
+    .map(o => ({
+      name:   o.office.length > 22 ? o.office.slice(0, 22) + '…' : o.office,
+      mse:    +o.mse.toFixed(2),
+      others: +o.others.toFixed(2),
+      total:  +o.total.toFixed(2),
+    }))
 
   return (
     <div>
-      {/* Org selector */}
-      <div style={{ marginBottom: 20 }}>
-        <span className="filter-label">Organisation</span>
-        <select className="filter-select" value={selOrg} onChange={e => setSelOrg(e.target.value)}
-          style={{ marginTop: 4, minWidth: 320 }}>
-          {[...orgList].sort((a,b) => b.total-a.total).map(o => (
-            <option key={o.org} value={o.org}>{o.org} — {fmtCr(o.total)}</option>
-          ))}
-        </select>
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: 20, marginBottom: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <MonthSelector months={monthLabels} sel={selMonth} onChange={v => { setSelMonth(v); setSelOrg(orgList[0]?.org ?? '') }} label="Month" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <span className="filter-label">Organisation</span>
+          <select className="filter-select" value={selOrg} onChange={e => setSelOrg(e.target.value)}
+            style={{ minWidth: 280 }}>
+            {[...orgList].sort((a, b) => b.total - a.total).map(o => (
+              <option key={o.org} value={o.org}>{o.org} — {fmtCr(o.total)}</option>
+            ))}
+          </select>
+        </div>
+        {prevMonth && (
+          <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.62rem', color: SLATE, paddingBottom: 6 }}>
+            Comparing with: <strong style={{ color: NAVY }}>{prevMonth.month}</strong>
+          </span>
+        )}
       </div>
 
       {/* KPIs */}
       <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        <KpiCard label="Total Pendency" value={fmtCr(orgTotal)}   color={TEAL} />
-        <KpiCard label="MSE"            value={fmtCr(orgMse)}     color={MSE_COLOR}    sub={`${orgTotal ? ((orgMse/orgTotal)*100).toFixed(1) : 0}%`} />
-        <KpiCard label="Others"         value={fmtCr(orgOthers)}  color={OTHERS_COLOR} sub={`${orgTotal ? ((orgOthers/orgTotal)*100).toFixed(1) : 0}%`} />
-        <KpiCard label="Offices"        value={offices.length}     color={AMBER} />
+        <KpiCard label="Total Pendency" value={fmtCr(orgTotal)}  color={TEAL} />
+        <KpiCard label="MSE"    value={fmtCr(orgMse)}    color={MSE_COLOR}
+          sub={`${orgTotal ? ((orgMse/orgTotal)*100).toFixed(1) : 0}%`} />
+        <KpiCard label="Others" value={fmtCr(orgOthers)} color={OTHERS_COLOR}
+          sub={`${orgTotal ? ((orgOthers/orgTotal)*100).toFixed(1) : 0}%`} />
+        <KpiCard label="Offices" value={offices.length} color={AMBER} />
       </div>
 
-      {/* Bar chart */}
+      {/* Chart */}
       {chartData.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px',
-          border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
-          <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
-            textTransform: 'uppercase', color: SLATE, marginBottom: 12 }}>
-            Office-wise Pendency — Top 15
-          </p>
-          <ResponsiveContainer width="100%" height={Math.max(240, chartData.length * 28)}>
-            <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 16, left: 160, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
-              <XAxis type="number" tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
-                axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" width={155}
-                tick={{ fontFamily: 'Inter', fontSize: 10, fill: NAVY }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
-                border: 'none', borderRadius: 6, color: '#fff' }}
-                formatter={(v, name) => [`₹${v} Cr`, name.toUpperCase()]} />
-              <Bar dataKey="mse"    name="MSE"    stackId="a" fill={MSE_COLOR} />
-              <Bar dataKey="others" name="Others" stackId="a" fill={OTHERS_COLOR} radius={[0,3,3,0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <ChartCard title="Office-wise Pendency — Top 15"
+          legend={[['MSE', MSE_COLOR], ['Others', OTHERS_COLOR]]}
+          height={Math.max(240, chartData.length * 28)}>
+          <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 60, left: 160, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
+            <XAxis type="number" tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
+              axisLine={false} tickLine={false} />
+            <YAxis type="category" dataKey="name" width={155}
+              tick={{ fontFamily: 'Inter', fontSize: 10, fill: NAVY }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
+              border: 'none', borderRadius: 6, color: '#fff' }}
+              formatter={(v, name) => [`₹${v} Cr`, name]} />
+            <Bar dataKey="mse"    name="MSE"    stackId="a" fill={MSE_COLOR} />
+            <Bar dataKey="others" name="Others" stackId="a" fill={OTHERS_COLOR} radius={[0,3,3,0]}>
+              <LabelList dataKey="total" position="right"
+                style={{ fontFamily: 'JetBrains Mono', fontSize: 9, fill: SLATE }}
+                formatter={v => `₹${v}`} />
+            </Bar>
+          </BarChart>
+        </ChartCard>
       )}
 
       {/* Table */}
@@ -337,118 +382,116 @@ function OfficeTab({ month, prevMonth }) {
       {offices.length === 0
         ? <p style={{ fontFamily: 'Inter', color: SLATE, fontSize: '0.8rem', padding: 16 }}>No office data available.</p>
         : (
-        <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: cols, background: NAVY, padding: '8px 12px', gap: 8 }}>
-            {['Office','MSE (Cr)','Others (Cr)','Total (Cr)', hasPrev ? 'MoM Δ' : null]
-              .filter(Boolean).map(h => (
-              <span key={h} style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem',
-                letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)',
-                textAlign: h !== 'Office' ? 'right' : 'left' }}>{h}</span>
-            ))}
+          <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: cols, background: NAVY, padding: '8px 12px', gap: 8 }}>
+              {['Office', 'MSE (Cr)', 'Others (Cr)', 'Total (Cr)', hasPrev ? 'MoM Δ' : null]
+                .filter(Boolean).map(h => (
+                <span key={h} style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem',
+                  letterSpacing: '0.08em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)',
+                  textAlign: h !== 'Office' ? 'right' : 'left' }}>{h}</span>
+              ))}
+            </div>
+            {[...offices].sort((a, b) => b.total - a.total).map((o, i) => {
+              const prev  = prevMap[o.office]
+              const delta = prev ? o.total - prev.total : null
+              return (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: cols,
+                  background: i%2===0 ? '#fff' : '#F8FAFC',
+                  padding: '7px 12px', gap: 8, borderBottom: '1px solid #F1F5F9', alignItems: 'center' }}>
+                  <span style={{ fontFamily: 'Inter', fontSize: '0.72rem', color: NAVY }}>{o.office}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: MSE_COLOR, textAlign: 'right' }}>{fmtCr(o.mse)}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: OTHERS_COLOR, textAlign: 'right' }}>{fmtCr(o.others)}</span>
+                  <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: NAVY, fontWeight: 700, textAlign: 'right' }}>{fmtCr(o.total)}</span>
+                  {hasPrev && <div style={{ textAlign: 'right' }}><DeltaBadge delta={delta} /></div>}
+                </div>
+              )
+            })}
           </div>
-          {[...offices].sort((a,b) => b.total-a.total).map((o, i) => {
-            const prev = prevMap[o.office]
-            const delta = prev ? o.total - prev.total : null
-            return (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: cols,
-                background: i%2===0 ? '#fff' : '#F8FAFC',
-                padding: '7px 12px', gap: 8, borderBottom: '1px solid #F1F5F9', alignItems: 'center' }}>
-                <span style={{ fontFamily: 'Inter', fontSize: '0.72rem', color: NAVY }}>{o.office}</span>
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: MSE_COLOR, textAlign: 'right' }}>{fmtCr(o.mse)}</span>
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: OTHERS_COLOR, textAlign: 'right' }}>{fmtCr(o.others)}</span>
-                <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: NAVY, fontWeight: 700, textAlign: 'right' }}>{fmtCr(o.total)}</span>
-                {hasPrev && <div style={{ textAlign: 'right' }}><DeltaBadge delta={delta} /></div>}
-              </div>
-            )
-          })}
-        </div>
-      )}
+        )}
     </div>
   )
 }
 
-// ── Aging tab ─────────────────────────────────────────────────────────────────
-const ORANGE = '#EA580C'
-const BUCKET_COLORS = [GREEN, AMBER, ORANGE, RED, PURPLE]
+// ── Aging analysis page ───────────────────────────────────────────────────────
+function AgingPage({ months }) {
+  const monthLabels = months.map(m => m.month)
+  const [selMonth, setSelMonth] = useState(monthLabels[monthLabels.length - 1] ?? '')
 
-function AgingTab({ month, prevMonth }) {
-  const agewise = month?.agewise
+  const currentMonth = months.find(m => m.month === selMonth) ?? null
+  const currentIdx   = months.findIndex(m => m.month === selMonth)
+  const prevMonth    = currentIdx > 0 ? months[currentIdx - 1] : null
+
+  const agewise     = currentMonth?.agewise
   const prevAgewise = prevMonth?.agewise
 
   if (!agewise?.orgs?.length) return (
-    <p style={{ fontFamily: 'Inter', color: SLATE, padding: 20 }}>No agewise data for this month.</p>
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <MonthSelector months={monthLabels} sel={selMonth} onChange={setSelMonth} label="Month" />
+      </div>
+      <p style={{ fontFamily: 'Inter', color: SLATE, padding: 20 }}>No agewise data for this month.</p>
+    </div>
   )
 
-  const buckets  = agewise.bucket_names
-  const orgs     = agewise.orgs
-  const prevMap  = Object.fromEntries((prevAgewise?.orgs ?? []).map(o => [o.org, o]))
-
+  const buckets     = agewise.bucket_names
+  const orgs        = agewise.orgs
   const grandTotal  = orgs.reduce((s, o) => s + o.total, 0)
-  const bucketTotals = buckets.map(b => orgs.reduce((s,o) => s + (o.buckets[b] || 0), 0))
+  const bucketTotals = buckets.map(b => orgs.reduce((s, o) => s + (o.buckets[b] || 0), 0))
 
-  const chartData = [...orgs].sort((a,b) => b.total-a.total).slice(0,12).map(o => {
-    const entry = { name: o.org.length > 18 ? o.org.slice(0,18)+'…' : o.org, total: +o.total.toFixed(2) }
+  const chartData = [...orgs].sort((a, b) => b.total - a.total).slice(0, 12).map(o => {
+    const entry = { name: o.org.length > 18 ? o.org.slice(0, 18) + '…' : o.org, total: +o.total.toFixed(2) }
     buckets.forEach(b => { entry[b] = +(o.buckets[b] || 0).toFixed(2) })
     return entry
   })
 
-  const ageCols = buckets.map(() => '80px').join(' ')
+  const ageCols  = buckets.map(() => '80px').join(' ')
   const tableCols = `1fr 90px ${ageCols}`
 
   return (
     <div>
+      {/* Filter */}
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
+        <MonthSelector months={monthLabels} sel={selMonth} onChange={setSelMonth} label="Month" />
+        {prevMonth && (
+          <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.62rem', color: SLATE, paddingBottom: 6 }}>
+            Comparing with: <strong style={{ color: NAVY }}>{prevMonth.month}</strong>
+          </span>
+        )}
+      </div>
+
       {/* Bucket KPIs */}
-      <div style={{ marginBottom: 8 }}>
-        <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.58rem', letterSpacing: '0.1em',
-          textTransform: 'uppercase', color: SLATE, marginBottom: 8 }}>
-          Agewise buckets for {month.month}
-        </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
-          {buckets.map((b, i) => (
-            <KpiCard key={b} label={b} value={fmtCr(bucketTotals[i])}
-              color={BUCKET_COLORS[i] || SLATE}
-              sub={`${grandTotal ? ((bucketTotals[i]/grandTotal)*100).toFixed(1) : 0}% of total`} />
-          ))}
-        </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 20 }}>
+        {buckets.map((b, i) => (
+          <KpiCard key={b} label={b} value={fmtCr(bucketTotals[i])}
+            color={BUCKET_COLORS[i] || SLATE}
+            sub={`${grandTotal ? ((bucketTotals[i]/grandTotal)*100).toFixed(1) : 0}% of total`} />
+        ))}
       </div>
 
       {/* Grouped bar — total + age buckets */}
-      <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px',
-        border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
-        <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
-          textTransform: 'uppercase', color: SLATE, marginBottom: 4 }}>
-          Age-wise Distribution per Organisation (₹ Cr)
-        </p>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 10 }}>
-          {[['Total', '#CBD5E1'], ...buckets.map((b, i) => [b, BUCKET_COLORS[i] || SLATE])].map(([l, c]) => (
-            <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: c }} />
-              <span style={{ fontFamily: 'Inter', fontSize: '0.68rem', color: SLATE }}>{l}</span>
-            </div>
+      <ChartCard title="Age-wise Distribution per Organisation (₹ Cr)"
+        legend={[['Total', '#CBD5E1'], ...buckets.map((b, i) => [b, BUCKET_COLORS[i] || SLATE])]}
+        height={320}>
+        <BarChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 70 }}
+          barCategoryGap="25%" barGap={2}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+          <XAxis dataKey="name" tick={{ fontFamily: 'Inter', fontSize: 10, fill: SLATE }}
+            axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} />
+          <YAxis tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
+            axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
+            border: 'none', borderRadius: 6, color: '#fff' }}
+            formatter={(v, n) => [`₹${v} Cr`, n]} />
+          <Bar dataKey="total" name="Total" fill="#CBD5E1" radius={[3,3,0,0]}>
+            <LabelList dataKey="total" position="top"
+              style={{ fontFamily: 'JetBrains Mono', fontSize: 9, fill: SLATE }}
+              formatter={v => `₹${v}`} />
+          </Bar>
+          {buckets.map((b, i) => (
+            <Bar key={b} dataKey={b} name={b} fill={BUCKET_COLORS[i] || SLATE} radius={[3,3,0,0]} />
           ))}
-        </div>
-        <ResponsiveContainer width="100%" height={320}>
-          <BarChart data={chartData} margin={{ top: 20, right: 8, left: 0, bottom: 70 }}
-            barCategoryGap="25%" barGap={2}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-            <XAxis dataKey="name" tick={{ fontFamily: 'Inter', fontSize: 10, fill: SLATE }}
-              axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} />
-            <YAxis tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
-              axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
-              border: 'none', borderRadius: 6, color: '#fff' }}
-              formatter={(v, n) => [`₹${v} Cr`, n]} />
-            <Bar dataKey="total" name="Total" fill="#CBD5E1" radius={[3,3,0,0]}>
-              <LabelList dataKey="total" position="top"
-                style={{ fontFamily: 'JetBrains Mono', fontSize: 9, fill: SLATE }}
-                formatter={v => `₹${v}`} />
-            </Bar>
-            {buckets.map((b, i) => (
-              <Bar key={b} dataKey={b} name={b} fill={BUCKET_COLORS[i] || SLATE} radius={[3,3,0,0]} />
-            ))}
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+        </BarChart>
+      </ChartCard>
 
       {/* Table */}
       <SectionLabel>Organisation-wise Aging Breakdown</SectionLabel>
@@ -459,13 +502,13 @@ function AgingTab({ month, prevMonth }) {
             textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)' }}>Organisation</span>
           <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem', letterSpacing: '0.08em',
             textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: 'right' }}>Total</span>
-          {buckets.map((b,i) => (
+          {buckets.map((b, i) => (
             <span key={b} style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem', letterSpacing: '0.06em',
               textTransform: 'uppercase', color: BUCKET_COLORS[i] || 'rgba(255,255,255,0.7)',
               textAlign: 'right', whiteSpace: 'nowrap' }}>{b}</span>
           ))}
         </div>
-        {[...orgs].sort((a,b) => b.total-a.total).map((o, i) => (
+        {[...orgs].sort((a, b) => b.total - a.total).map((o, i) => (
           <div key={i} style={{ display: 'grid', gridTemplateColumns: tableCols,
             background: i%2===0 ? '#fff' : '#F8FAFC', padding: '7px 12px',
             gap: 8, borderBottom: '1px solid #F1F5F9', alignItems: 'center', minWidth: 600 }}>
@@ -485,22 +528,8 @@ function AgingTab({ month, prevMonth }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-const TABS = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'offices',  label: 'Office Drill-down' },
-  { key: 'aging',    label: 'Aging Analysis' },
-]
-
 export default function GemDuesDashboard({ data, initialTab = 'overview' }) {
   const months = data?.months ?? []
-  const monthLabels = months.map(m => m.month)
-
-  const [selMonth,  setSelMonth]  = useState(() => monthLabels[monthLabels.length - 1] ?? '')
-  const [activeTab, setActiveTab] = useState(initialTab)
-
-  const currentMonth = useMemo(() => months.find(m => m.month === selMonth) ?? null, [months, selMonth])
-  const currentIdx   = useMemo(() => months.findIndex(m => m.month === selMonth), [months, selMonth])
-  const prevMonth    = currentIdx > 0 ? months[currentIdx - 1] : null
 
   if (!months.length) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -510,28 +539,9 @@ export default function GemDuesDashboard({ data, initialTab = 'overview' }) {
 
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#F1F5F9' }}>
-
-      {/* Filters row */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
-        <MonthSelector months={monthLabels} sel={selMonth} onChange={setSelMonth} label="Month" />
-        {prevMonth && (
-          <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.62rem', color: SLATE, paddingBottom: 6 }}>
-            Comparing with: <strong style={{ color: NAVY }}>{prevMonth.month}</strong>
-          </span>
-        )}
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginBottom: 20, background: '#fff',
-        borderRadius: '8px 8px 0 0', padding: '0 4px' }}>
-        {TABS.map(t => <Tab key={t.key} label={t.label} active={activeTab === t.key} onClick={() => setActiveTab(t.key)} />)}
-      </div>
-
-      {/* Tab content */}
-      {activeTab === 'overview' && <OverviewTab month={currentMonth} prevMonth={prevMonth} />}
-      {activeTab === 'offices'  && <OfficeTab   month={currentMonth} prevMonth={prevMonth} />}
-      {activeTab === 'aging'    && <AgingTab    month={currentMonth} prevMonth={prevMonth} />}
-
+      {initialTab === 'overview' && <OverviewPage months={months} />}
+      {initialTab === 'offices'  && <OfficePage   months={months} />}
+      {initialTab === 'aging'    && <AgingPage    months={months} />}
     </div>
   )
 }
