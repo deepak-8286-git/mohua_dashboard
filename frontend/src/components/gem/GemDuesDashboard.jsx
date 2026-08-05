@@ -368,7 +368,8 @@ function OfficeTab({ month, prevMonth }) {
 }
 
 // ── Aging tab ─────────────────────────────────────────────────────────────────
-const BUCKET_COLORS = [GREEN, AMBER, ORANGE = '#EA580C', RED, PURPLE]
+const ORANGE = '#EA580C'
+const BUCKET_COLORS = [GREEN, AMBER, ORANGE, RED, PURPLE]
 
 function AgingTab({ month, prevMonth }) {
   const agewise = month?.agewise
