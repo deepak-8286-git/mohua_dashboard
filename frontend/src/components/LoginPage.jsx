@@ -2,7 +2,7 @@ import { useState } from 'react'
 import PulseLine from './PulseLine'
 
 const VALID_USER = 'deepak.p'
-const VALID_PASS = 'deepak.p@123'
+const VALID_PASS = 'deepak.p@1234'
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('')

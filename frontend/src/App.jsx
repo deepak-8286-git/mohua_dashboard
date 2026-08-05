@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useIAW, useBill, usePension, useAutoRefresh } from './api/client'
+import { useIAW, useBill, usePension, useGem, useAutoRefresh } from './api/client'
 import Sidebar from './components/Sidebar'
 import PulseLine from './components/PulseLine'
 import LoginPage from './components/LoginPage'
@@ -7,6 +7,7 @@ import IAWDashboard from './components/iaw/IAWDashboard'
 import BillDashboard from './components/bill/BillDashboard'
 import ScorecardDashboard from './components/bill/ScorecardDashboard'
 import PensionDashboard from './components/pension/PensionDashboard'
+import GemDuesDashboard from './components/gem/GemDuesDashboard'
 
 function Spinner() {
   return (
@@ -29,6 +30,7 @@ function Dashboard({ onLogout }) {
   const iaw     = useIAW()
   const bill    = useBill()
   const pension = usePension()
+  const gem     = useGem()
   useAutoRefresh()
 
   const lastUpdated = iaw.dataUpdatedAt
@@ -106,6 +108,13 @@ function Dashboard({ onLogout }) {
             pension.isLoading ? <Spinner /> :
             pension.isError   ? <ErrorMsg msg={pension.error?.message} /> :
             <PensionDashboard data={pension.data} />
+          )}
+          {(active === 'gem' || active === 'gem-offices' || active === 'gem-aging') && (
+            gem.isLoading ? <Spinner /> :
+            gem.isError   ? <ErrorMsg msg={gem.error?.message} /> :
+            <GemDuesDashboard data={gem.data} initialTab={
+              active === 'gem-offices' ? 'offices' : active === 'gem-aging' ? 'aging' : 'overview'
+            } />
           )}
         </main>
       </div>

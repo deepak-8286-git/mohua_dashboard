@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, BarChart2, FileText, Users } from 'lucide-react'
+import { ChevronDown, ChevronRight, BarChart2, FileText, Users, ShoppingBag } from 'lucide-react'
 
 const AMBER = '#F9A55A'
 
@@ -48,6 +48,7 @@ export default function Sidebar({ active, onSelect }) {
   const [iawOpen,     setIawOpen]     = useState(true)
   const [billOpen,    setBillOpen]    = useState(true)
   const [pensionOpen, setPensionOpen] = useState(true)
+  const [gemOpen,     setGemOpen]     = useState(true)
 
   return (
     <aside className="w-56 shrink-0 flex flex-col overflow-y-auto"
@@ -92,6 +93,17 @@ export default function Sidebar({ active, onSelect }) {
           onToggle={() => setPensionOpen(v => !v)}
         >
           <NavItem label="Overview" active={active === 'pension'} onClick={() => onSelect('pension')} />
+        </NavSection>
+
+        <NavSection
+          label="GeM Dues"
+          icon={ShoppingBag}
+          isOpen={gemOpen}
+          onToggle={() => setGemOpen(v => !v)}
+        >
+          <NavItem label="Overview"       active={active === 'gem'}         onClick={() => onSelect('gem')} />
+          <NavItem label="Office View"    active={active === 'gem-offices'}  onClick={() => onSelect('gem-offices')} />
+          <NavItem label="Aging Analysis" active={active === 'gem-aging'}    onClick={() => onSelect('gem-aging')} />
         </NavSection>
       </nav>
 
