@@ -131,7 +131,17 @@ def parse_gem() -> dict:
     agewise_files = sorted(_list_xlsx_in_folder(AGEWISE_FOLDER_ID), key=lambda f: _month_sort_key(f["name"]))
 
     def _extract_month_label(name):
+        # Normalize any filename to "Month YYYY"
         # "June 2026.xlsx" → "June 2026"
+        # "Age wise pendency in June 2026.xlsx" → "June 2026"
+        m = re.search(
+            r'(january|february|march|april|may|june|july|august|'
+            r'september|october|november|december)\s+\d{4}',
+            name, re.IGNORECASE
+        )
+        if m:
+            parts = m.group().split()
+            return f"{parts[0].title()} {parts[1]}"
         return re.sub(r'\.(xlsx?|xls)$', '', name, flags=re.IGNORECASE).strip()
 
     months = []
