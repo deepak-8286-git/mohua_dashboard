@@ -301,7 +301,10 @@ function OfficePage({ months }) {
   const officesByOrg     = currentMonth?.dues?.offices_by_org ?? {}
   const prevOfficesByOrg = prevMonth?.dues?.offices_by_org ?? {}
 
-  const [selOrg, setSelOrg] = useState(() => orgList[0]?.org ?? '')
+  const [selOrg, setSelOrg] = useState(() => {
+    const cpwd = orgList.find(o => o.org.toLowerCase().includes('central public works'))
+    return cpwd?.org ?? orgList[0]?.org ?? ''
+  })
 
   const offices     = officesByOrg[selOrg] ?? []
   const prevOffices = prevOfficesByOrg[selOrg] ?? []
@@ -326,7 +329,11 @@ function OfficePage({ months }) {
     <div>
       {/* Filters */}
       <div style={{ display: 'flex', gap: 20, marginBottom: 20, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <MonthSelector months={monthLabels} sel={selMonth} onChange={v => { setSelMonth(v); setSelOrg(orgList[0]?.org ?? '') }} label="Month" />
+        <MonthSelector months={monthLabels} sel={selMonth} onChange={v => {
+  setSelMonth(v)
+  const cpwd = orgList.find(o => o.org.toLowerCase().includes('central public works'))
+  setSelOrg(cpwd?.org ?? orgList[0]?.org ?? '')
+}} label="Month" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span className="filter-label">Organisation</span>
           <select className="filter-select" value={selOrg} onChange={e => setSelOrg(e.target.value)}
