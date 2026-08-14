@@ -3,25 +3,44 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
 } from 'recharts'
+import {
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  Users2,
+  Layers,
+  ChevronDown,
+  ChevronRight,
+} from 'lucide-react'
 
-const SLATE  = '#64748B'
-const NAVY   = '#1E293B'
-const RED    = '#DC2626'
-const ORANGE = '#EA580C'
-const AMBER  = '#D97706'
-const GREEN  = '#059669'
-const BLUE   = '#3B82F6'
+const RED    = '#F43F5E'
+const ORANGE = '#FB923C'
+const AMBER  = '#F59E0B'
+const GREEN  = '#10B981'
+const BLUE   = '#38BDF8'
 const ALL    = '__all__'
 
 const STATUS_META = {
-  critical: { label: 'Critical',  color: RED,    desc: 'EOS passed — EPPO not submitted' },
-  at_risk:  { label: 'At Risk',   color: ORANGE, desc: 'Physical received — EPPO not yet submitted' },
-  delayed:  { label: 'Delayed',   color: AMBER,  desc: 'Physical received after 2-month deadline' },
-  on_time:  { label: 'On Time',   color: GREEN,  desc: 'Physical received ≥2 months before EOS, EPPO submitted' },
-  pending:  { label: 'Pending',   color: BLUE,   desc: 'Physical not yet received, EOS upcoming' },
+  critical: { label: 'Critical',  color: RED,    icon: AlertTriangle, desc: 'EOS passed — EPPO not submitted' },
+  at_risk:  { label: 'At Risk',   color: ORANGE, icon: AlertCircle,   desc: 'Physical received — EPPO pending' },
+  delayed:  { label: 'Delayed',   color: AMBER,  icon: Clock,         desc: 'Physical received after 2m deadline' },
+  pending:  { label: 'Pending',   color: BLUE,   icon: HelpCircle,    desc: 'Physical not yet received' },
+  on_time:  { label: 'On Time',   color: GREEN,  icon: CheckCircle2,  desc: 'Processed within 2m window' },
 }
 
 const STATUS_ORDER = ['critical', 'at_risk', 'delayed', 'pending', 'on_time']
+
+const TT_STYLE = {
+  backgroundColor: 'rgba(12, 23, 44, 0.95)',
+  border: '1px solid rgba(255, 255, 255, 0.15)',
+  borderRadius: 8,
+  color: '#F8FAFC',
+  backdropFilter: 'blur(8px)',
+  fontSize: 12,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+}
 
 function getMonth(period) {
   const m = period?.match(/^([A-Za-z]+)\s+[\d\s–\-]+,?\s*(\d{4})/)
@@ -36,106 +55,50 @@ function fmt(d) {
 }
 
 function delayBadge(days) {
-  if (days === null || days === undefined) return null
+  if (days === null || days === undefined) return <span className="text-slate-500 font-mono text-xs">—</span>
   const abs = Math.abs(days)
   const color = days > 0 ? RED : GREEN
   const label = days > 0 ? `+${abs}d late` : `${abs}d early`
   return (
-    <span style={{ fontSize: '0.65rem', fontFamily: 'JetBrains Mono', fontWeight: 700,
-      color, background: color + '18', padding: '2px 6px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+    <span
+      className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full whitespace-nowrap inline-block"
+      style={{ color, background: color + '20', border: `1px solid ${color}35` }}
+    >
       {label}
     </span>
   )
 }
 
-// ── KPI card ─────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, color, sub }) {
+function SectionDivider({ children, icon: Icon, badge, count }) {
   return (
-    <div style={{ background: '#FFFFFF', borderRadius: 10, padding: '14px 18px',
-      border: `1px solid ${color}44`, borderTop: `3px solid ${color}`,
-      boxShadow: '0 1px 4px rgba(0,0,0,0.06)', flex: 1, minWidth: 110 }}>
-      <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
-        textTransform: 'uppercase', color: SLATE, marginBottom: 6 }}>{label}</p>
-      <p style={{ fontFamily: 'Rajdhani', fontSize: '2rem', fontWeight: 700, color, lineHeight: 1 }}>{value}</p>
-      {sub && <p style={{ fontFamily: 'Inter', fontSize: '0.65rem', color: SLATE, marginTop: 4 }}>{sub}</p>}
-    </div>
-  )
-}
-
-// ── Section label ─────────────────────────────────────────────────────────────
-function SectionLabel({ children }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-      <span style={{ fontSize: '0.6rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.12em',
-        textTransform: 'uppercase', color: '#FFFFFF', fontWeight: 700,
-        background: NAVY, padding: '3px 9px', borderRadius: 4, whiteSpace: 'nowrap' }}>
-        {children}
-      </span>
-      <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
-    </div>
-  )
-}
-
-// ── Table helpers ─────────────────────────────────────────────────────────────
-function Th({ children, right }) {
-  return (
-    <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.55rem', letterSpacing: '0.08em',
-      textTransform: 'uppercase', color: 'rgba(255,255,255,0.7)', textAlign: right ? 'right' : 'left' }}>
-      {children}
-    </span>
-  )
-}
-function Td({ children, mono, right, bold, color }) {
-  return (
-    <span style={{ fontFamily: mono ? 'JetBrains Mono' : 'Inter', fontSize: mono ? '0.68rem' : '0.72rem',
-      color: color || NAVY, fontWeight: bold ? 700 : 400, textAlign: right ? 'right' : 'left',
-      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-      {children}
-    </span>
-  )
-}
-function TableShell({ cols, headers, rows: rowsData, renderRow }) {
-  return (
-    <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #E2E8F0' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: cols,
-        background: NAVY, borderRadius: '6px 6px 0 0', padding: '7px 10px', gap: 6 }}>
-        {headers}
+    <div className="flex items-center gap-3 mb-3 select-none">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon size={14} className="text-[#F9A55A]" />}
+        <span className="section-label">{children}</span>
+        {count != null && (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-white/10 text-slate-300">
+            {count}
+          </span>
+        )}
       </div>
-      {rowsData.length === 0
-        ? <p style={{ fontFamily: 'Inter', fontSize: '0.8rem', color: SLATE,
-            textAlign: 'center', padding: 20 }}>No cases.</p>
-        : rowsData.map((row, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: cols,
-            background: i % 2 === 0 ? '#FFFFFF' : '#F8FAFC',
-            padding: '7px 10px', gap: 6, borderBottom: '1px solid #F1F5F9', alignItems: 'center' }}>
-            {renderRow(row, i)}
-          </div>
-        ))
-      }
+      <div className="flex-1 h-[1px] bg-gradient-to-r from-white/10 to-transparent" />
     </div>
   )
 }
 
-function StatusChip({ status }) {
-  const m = STATUS_META[status] || {}
+function KpiCard({ label, value, color, sub, icon: Icon, active, onClick }) {
   return (
-    <span style={{ fontSize: '0.6rem', fontFamily: 'JetBrains Mono', fontWeight: 700,
-      color: m.color, background: (m.color || '#ccc') + '18',
-      padding: '2px 7px', borderRadius: 4, whiteSpace: 'nowrap' }}>
-      {m.label}
-    </span>
-  )
-}
-
-// ── Charts ────────────────────────────────────────────────────────────────────
-
-const CustomPieTooltip = ({ active, payload }) => {
-  if (!active || !payload?.length) return null
-  const { name, value } = payload[0]
-  return (
-    <div style={{ background: '#1E293B', border: 'none', borderRadius: 6,
-      padding: '6px 12px', color: '#fff', fontFamily: 'Inter', fontSize: '0.75rem' }}>
-      <strong>{name}</strong>: {value}
+    <div
+      onClick={onClick}
+      className={`kpi-card flex-1 min-w-[130px] cursor-pointer transition-all ${active ? 'ring-2 ring-white/30' : ''}`}
+      style={{ '--kpi-accent': color }}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <p className="font-mono text-[10px] font-bold tracking-wider uppercase text-slate-400">{label}</p>
+        {Icon && <Icon size={14} style={{ color }} />}
+      </div>
+      <p className="font-display text-3xl font-bold leading-none" style={{ color }}>{value}</p>
+      {sub && <p className="font-body text-[10px] text-slate-400 mt-1 leading-tight">{sub}</p>}
     </div>
   )
 }
@@ -146,26 +109,26 @@ function StatusDonut({ cases }) {
     .filter(d => d.value > 0)
 
   return (
-    <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px',
-      border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-      <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
-        textTransform: 'uppercase', color: SLATE, marginBottom: 12 }}>Status Distribution</p>
-      <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-        <ResponsiveContainer width={160} height={160}>
+    <div className="chart-card flex flex-col justify-between">
+      <div className="flex items-center gap-2 mb-3">
+        <Layers size={14} className="text-amber-400" />
+        <span className="font-mono text-xs uppercase font-bold text-slate-300">Status Distribution</span>
+      </div>
+      <div className="flex items-center justify-around gap-4 flex-wrap">
+        <ResponsiveContainer width={150} height={150}>
           <PieChart>
-            <Pie data={data} dataKey="value" innerRadius={48} outerRadius={72} paddingAngle={2}>
-              {data.map((d, i) => <Cell key={i} fill={d.color} />)}
+            <Pie data={data} dataKey="value" innerRadius={42} outerRadius={66} paddingAngle={3}>
+              {data.map((d, i) => <Cell key={i} fill={d.color} stroke="#0B152A" strokeWidth={2} />)}
             </Pie>
-            <Tooltip content={<CustomPieTooltip />} />
+            <Tooltip contentStyle={TT_STYLE} />
           </PieChart>
         </ResponsiveContainer>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className="space-y-1.5 font-mono text-xs">
           {data.map(d => (
-            <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 2, background: d.color, flexShrink: 0 }} />
-              <span style={{ fontFamily: 'Inter', fontSize: '0.72rem', color: NAVY }}>{d.name}</span>
-              <span style={{ fontFamily: 'Rajdhani', fontSize: '0.85rem', fontWeight: 700,
-                color: d.color, marginLeft: 'auto', paddingLeft: 12 }}>{d.value}</span>
+            <div key={d.name} className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-sm" style={{ background: d.color }} />
+              <span className="text-slate-300 text-[11px]">{d.name}</span>
+              <span className="font-bold text-white ml-auto">{d.value}</span>
             </div>
           ))}
         </div>
@@ -175,16 +138,15 @@ function StatusDonut({ cases }) {
 }
 
 function DelayDistChart({ cases }) {
-  // Only cases where physical was received
   const received = cases.filter(c => c.physical_delay_days !== null && c.physical_delay_days !== undefined)
   if (!received.length) return null
 
   const buckets = [
-    { label: '>60d early', min: -Infinity, max: -60, color: GREEN },
+    { label: '>60d early', min: -Infinity, max: -60, color: '#10B981' },
     { label: '30-60d early', min: -60, max: -30, color: '#34D399' },
-    { label: '0-30d early', min: -30, max: 0,   color: AMBER },
-    { label: '0-30d late',  min: 0,   max: 30,   color: ORANGE },
-    { label: '>30d late',   min: 30,  max: Infinity, color: RED },
+    { label: '0-30d early', min: -30, max: 0,   color: '#F59E0B' },
+    { label: '0-30d late',  min: 0,   max: 30,   color: '#FB923C' },
+    { label: '>30d late',   min: 30,  max: Infinity, color: '#F43F5E' },
   ]
 
   const data = buckets.map(b => ({
@@ -194,26 +156,20 @@ function DelayDistChart({ cases }) {
   })).filter(d => d.count > 0)
 
   return (
-    <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px',
-      border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', flex: 1 }}>
-      <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
-        textTransform: 'uppercase', color: SLATE, marginBottom: 4 }}>Physical Receipt Delay Distribution</p>
-      <p style={{ fontFamily: 'Inter', fontSize: '0.68rem', color: SLATE, marginBottom: 12 }}>
-        Days vs 2-month deadline — {received.length} cases with physical received
-      </p>
-      <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={data} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
-            axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
-            axisLine={false} tickLine={false} allowDecimals={false} />
-          <Tooltip
-            formatter={(v) => [v, 'Cases']}
-            contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
-              border: 'none', borderRadius: 6, color: '#fff' }}
-            labelStyle={{ color: '#fff' }}
-          />
+    <div className="chart-card flex-1">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Clock size={14} className="text-amber-400" />
+          <span className="font-mono text-xs uppercase font-bold text-slate-300">Physical Receipt Timeline</span>
+        </div>
+        <span className="font-mono text-[11px] text-slate-400">{received.length} physical cases logged</span>
+      </div>
+      <ResponsiveContainer width="100%" height={160}>
+        <BarChart data={data} margin={{ top: 8, right: 10, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+          <XAxis dataKey="label" tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+          <Tooltip contentStyle={TT_STYLE} />
           <Bar dataKey="count" radius={[4, 4, 0, 0]}>
             {data.map((d, i) => <Cell key={i} fill={d.color} />)}
           </Bar>
@@ -238,126 +194,99 @@ function PaoChart({ cases }) {
   if (!paos.length) return null
 
   return (
-    <div style={{ background: '#fff', borderRadius: 10, padding: '16px 20px',
-      border: '1px solid #E2E8F0', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-      <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', letterSpacing: '0.1em',
-        textTransform: 'uppercase', color: SLATE, marginBottom: 12 }}>PAO-wise Status Breakdown</p>
+    <div className="chart-card">
+      <div className="flex items-center gap-2 mb-3">
+        <Users2 size={14} className="text-amber-400" />
+        <span className="font-mono text-xs uppercase font-bold text-slate-300">PAO-wise Status Breakdown</span>
+      </div>
       <ResponsiveContainer width="100%" height={Math.max(180, paos.length * 36)}>
-        <BarChart data={paos} layout="vertical" margin={{ top: 0, right: 16, left: 40, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" horizontal={false} />
-          <XAxis type="number" tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: SLATE }}
-            axisLine={false} tickLine={false} allowDecimals={false} />
-          <YAxis type="category" dataKey="pao" width={50}
-            tick={{ fontFamily: 'JetBrains Mono', fontSize: 10, fill: NAVY, fontWeight: 600 }}
-            axisLine={false} tickLine={false} />
-          <Tooltip
-            contentStyle={{ fontFamily: 'Inter', fontSize: '0.75rem', background: NAVY,
-              border: 'none', borderRadius: 6, color: '#fff' }}
-            labelStyle={{ color: '#fff' }}
-          />
-          <Legend wrapperStyle={{ fontFamily: 'Inter', fontSize: '0.7rem', paddingTop: 8 }} />
-          <Bar dataKey="critical" name="Critical"  stackId="a" fill={RED}    radius={0} />
-          <Bar dataKey="at_risk"  name="At Risk"   stackId="a" fill={ORANGE} radius={0} />
-          <Bar dataKey="delayed"  name="Delayed"   stackId="a" fill={AMBER}  radius={0} />
-          <Bar dataKey="pending"  name="Pending"   stackId="a" fill={BLUE}   radius={0} />
-          <Bar dataKey="on_time"  name="On Time"   stackId="a" fill={GREEN}  radius={[0,3,3,0]} />
+        <BarChart data={paos} layout="vertical" margin={{ top: 0, right: 16, left: 20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
+          <XAxis type="number" tick={{ fill: '#94A3B8', fontSize: 10 }} axisLine={false} tickLine={false} allowDecimals={false} />
+          <YAxis type="category" dataKey="pao" width={60} tick={{ fill: '#E2E8F0', fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} />
+          <Tooltip contentStyle={TT_STYLE} />
+          <Legend wrapperStyle={{ fontSize: 11, color: '#94A3B8', paddingTop: 6 }} />
+          <Bar dataKey="critical" name="Critical"  stackId="a" fill={RED} />
+          <Bar dataKey="at_risk"  name="At Risk"   stackId="a" fill={ORANGE} />
+          <Bar dataKey="delayed"  name="Delayed"   stackId="a" fill={AMBER} />
+          <Bar dataKey="pending"  name="Pending"   stackId="a" fill={BLUE} />
+          <Bar dataKey="on_time"  name="On Time"   stackId="a" fill={GREEN} radius={[0, 4, 4, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
   )
 }
 
-// ── Tables ────────────────────────────────────────────────────────────────────
-
-const CRITICAL_COLS = '28px 1fr 60px 80px 96px 96px 96px 80px'
-const FULL_COLS     = '28px 1fr 60px 80px 96px 96px 96px 96px 72px'
-
-function CriticalTable({ cases }) {
+function PensionCasesTable({ cases, title, icon: Icon, badgeColor }) {
   const today = new Date()
+
+  if (!cases.length) return null
+
   return (
-    <TableShell
-      cols={CRITICAL_COLS}
-      headers={<>
-        <Th>#</Th><Th>Pensioner</Th><Th>PAO</Th><Th>Class</Th>
-        <Th>End of Service</Th><Th>Deadline (EOS−2m)</Th>
-        <Th>Physical Received</Th><Th right>Days Since EOS</Th>
-      </>}
-      rows={cases}
-      renderRow={(c, i) => {
-        const eosDays = c.end_of_service
-          ? Math.floor((today - new Date(c.end_of_service)) / 86400000) : null
-        return <>
-          <Td mono color={SLATE}>{i+1}</Td>
-          <Td bold>{c.name}</Td>
-          <Td mono bold color={NAVY}>{c.pao}</Td>
-          <Td color={SLATE}>{c.pension_class}</Td>
-          <Td mono color={RED} bold>{fmt(c.end_of_service)}</Td>
-          <Td mono color={SLATE}>{fmt(c.deadline)}</Td>
-          <Td mono color={c.physical_received ? AMBER : RED}>
-            {c.physical_received ? fmt(c.physical_received) : 'NOT RECEIVED'}
-          </Td>
-          <Td mono right bold color={RED}>{eosDays !== null ? `+${eosDays}d` : '—'}</Td>
-        </>
-      }}
-    />
+    <div className="mb-6">
+      <SectionDivider icon={Icon} count={cases.length}>{title}</SectionDivider>
+      <div className="table-container">
+        <div className="overflow-x-auto max-h-96">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-[#0B152A] border-b border-white/10">
+              <tr>
+                <th className="px-3.5 py-2.5 text-left font-mono text-[10px] text-slate-400 uppercase">#</th>
+                <th className="px-3.5 py-2.5 text-left font-mono text-[10px] text-slate-400 uppercase">Pensioner Name</th>
+                <th className="px-3.5 py-2.5 text-left font-mono text-[10px] text-slate-400 uppercase">PAO</th>
+                <th className="px-3.5 py-2.5 text-left font-mono text-[10px] text-slate-400 uppercase">Class</th>
+                <th className="px-3.5 py-2.5 text-left font-mono text-[10px] text-slate-400 uppercase">End of Service</th>
+                <th className="px-3.5 py-2.5 text-left font-mono text-[10px] text-slate-400 uppercase">Deadline (EOS-2m)</th>
+                <th className="px-3.5 py-2.5 text-left font-mono text-[10px] text-slate-400 uppercase">Physical Received</th>
+                <th className="px-3.5 py-2.5 text-left font-mono text-[10px] text-slate-400 uppercase">EPPO Status</th>
+                <th className="px-3.5 py-2.5 text-right font-mono text-[10px] text-slate-400 uppercase">Timeline Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {cases.map((c, i) => {
+                const eosDays = c.end_of_service
+                  ? Math.floor((today - new Date(c.end_of_service)) / 86400000) : null
+
+                return (
+                  <tr key={i} className="hover:bg-white/[0.04] transition-colors">
+                    <td className="px-3.5 py-2 font-mono text-slate-400">{i + 1}</td>
+                    <td className="px-3.5 py-2 text-slate-200 font-semibold">{c.name}</td>
+                    <td className="px-3.5 py-2 font-mono font-bold text-sky-400">{c.pao}</td>
+                    <td className="px-3.5 py-2 text-slate-400">{c.pension_class || 'General'}</td>
+                    <td className="px-3.5 py-2 font-mono text-slate-300">{fmt(c.end_of_service)}</td>
+                    <td className="px-3.5 py-2 font-mono text-slate-400">{fmt(c.deadline)}</td>
+                    <td className="px-3.5 py-2 font-mono">
+                      {c.physical_received ? (
+                        <span className="text-slate-200">{fmt(c.physical_received)}</span>
+                      ) : (
+                        <span className="text-rose-400 font-semibold">NOT RECEIVED</span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2 font-mono">
+                      {c.eppo_submitted ? (
+                        <span className="text-emerald-400 font-semibold">{fmt(c.eppo_submitted)}</span>
+                      ) : (
+                        <span className="text-amber-400 font-semibold">PENDING</span>
+                      )}
+                    </td>
+                    <td className="px-3.5 py-2 text-right">
+                      {c.status === 'critical' ? (
+                        <span className="font-mono text-xs font-bold text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded border border-rose-500/30">
+                          {eosDays !== null ? `+${eosDays}d past EOS` : 'EOS Expired'}
+                        </span>
+                      ) : (
+                        delayBadge(c.physical_delay_days)
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   )
 }
-
-function AtRiskTable({ cases }) {
-  return (
-    <TableShell
-      cols={FULL_COLS}
-      headers={<>
-        <Th>#</Th><Th>Pensioner</Th><Th>PAO</Th><Th>Class</Th>
-        <Th>End of Service</Th><Th>Deadline</Th>
-        <Th>Physical Received</Th><Th>EPPO Status</Th><Th right>Delay</Th>
-      </>}
-      rows={cases}
-      renderRow={(c, i) => <>
-        <Td mono color={SLATE}>{i+1}</Td>
-        <Td bold>{c.name}</Td>
-        <Td mono bold color={NAVY}>{c.pao}</Td>
-        <Td color={SLATE}>{c.pension_class}</Td>
-        <Td mono>{fmt(c.end_of_service)}</Td>
-        <Td mono color={SLATE}>{fmt(c.deadline)}</Td>
-        <Td mono color={NAVY}>{fmt(c.physical_received)}</Td>
-        <Td mono color={ORANGE} bold>NOT DONE</Td>
-        <div style={{ textAlign: 'right' }}>{delayBadge(c.physical_delay_days)}</div>
-      </>}
-    />
-  )
-}
-
-function GenericTable({ cases }) {
-  return (
-    <TableShell
-      cols={FULL_COLS}
-      headers={<>
-        <Th>#</Th><Th>Pensioner</Th><Th>PAO</Th><Th>Class</Th>
-        <Th>End of Service</Th><Th>Deadline</Th>
-        <Th>Physical Received</Th><Th>EPPO Submitted</Th><Th right>Delay</Th>
-      </>}
-      rows={cases}
-      renderRow={(c, i) => <>
-        <Td mono color={SLATE}>{i+1}</Td>
-        <Td bold>{c.name}</Td>
-        <Td mono bold color={NAVY}>{c.pao}</Td>
-        <Td color={SLATE}>{c.pension_class}</Td>
-        <Td mono>{fmt(c.end_of_service)}</Td>
-        <Td mono color={SLATE}>{fmt(c.deadline)}</Td>
-        <Td mono color={c.physical_received ? NAVY : SLATE}>
-          {c.physical_received ? fmt(c.physical_received) : 'NOT RECEIVED'}
-        </Td>
-        <Td mono color={c.eppo_submitted ? GREEN : SLATE}>
-          {c.eppo_submitted ? fmt(c.eppo_submitted) : 'NOT DONE'}
-        </Td>
-        <div style={{ textAlign: 'right' }}>{delayBadge(c.physical_delay_days)}</div>
-      </>}
-    />
-  )
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
 
 export default function PensionDashboard({ data }) {
   const weeks = data?.weeks ?? []
@@ -401,93 +330,73 @@ export default function PensionDashboard({ data }) {
   const onTime  = useMemo(() => allCases.filter(c => c.status === 'on_time'), [allCases])
 
   if (!weeks.length) return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <p style={{ fontFamily: 'Inter', color: SLATE }}>No pension data available.</p>
+    <div className="flex-1 flex items-center justify-center p-8">
+      <p className="font-mono text-xs text-slate-400">No pension data available in Google Drive.</p>
     </div>
   )
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', background: '#F1F5F9' }}>
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {/* Filters Bar */}
+      <div className="flex items-center justify-between flex-wrap gap-4 p-4 rounded-xl glass-card">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="filter-label">Month:</span>
+            <select
+              className="filter-select font-mono"
+              value={selMonth}
+              onChange={e => {
+                const nw = [...weeks].reverse().filter(w => getMonth(w.period) === e.target.value)
+                setSelMonth(e.target.value)
+                setSelWeek(nw[0]?.period ?? '')
+              }}
+            >
+              {months.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+          </div>
 
-      {/* Filters */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span className="filter-label">Month</span>
-          <select className="filter-select" value={selMonth}
-            onChange={e => {
-              const nw = [...weeks].reverse().filter(w => getMonth(w.period) === e.target.value)
-              setSelMonth(e.target.value); setSelWeek(nw[0]?.period ?? '')
-            }}>
-            {months.map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+          <div className="flex items-center gap-2">
+            <span className="filter-label">Week:</span>
+            <select className="filter-select font-mono" value={selWeek} onChange={e => setSelWeek(e.target.value)}>
+              {monthWeeks.map(w => <option key={w.period} value={w.period}>{w.period}</option>)}
+            </select>
+          </div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span className="filter-label">Week</span>
-          <select className="filter-select" value={selWeek} onChange={e => setSelWeek(e.target.value)}>
-            {monthWeeks.map(w => <option key={w.period} value={w.period}>{w.period}</option>)}
-          </select>
-        </div>
+
+        <span className="font-mono text-xs text-slate-400 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-white/5">
+          {allCases.length} total cases tracking
+        </span>
       </div>
 
-      {/* KPI row */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-        <KpiCard label="Total Cases" value={allCases.length}  color={NAVY} />
-        <KpiCard label="Critical"    value={critical.length}  color={RED}    sub="EOS passed, EPPO not submitted" />
-        <KpiCard label="At Risk"     value={atRisk.length}    color={ORANGE} sub="File received, EPPO pending" />
-        <KpiCard label="Delayed"     value={delayed.length}   color={AMBER}  sub="Physical received after deadline" />
-        <KpiCard label="Pending"     value={pending.length}   color={BLUE}   sub="File not yet received" />
-        <KpiCard label="On Time"     value={onTime.length}    color={GREEN}  sub="Processed within 2-month window" />
+      {/* KPI Cards Row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <KpiCard label="Total Cases" value={allCases.length} color="#E2E8F0" icon={Users2} />
+        <KpiCard label="Critical"    value={critical.length} color={RED}    sub="EOS passed, EPPO pending" icon={AlertTriangle} />
+        <KpiCard label="At Risk"     value={atRisk.length}   color={ORANGE} sub="Physical in, EPPO pending" icon={AlertCircle} />
+        <KpiCard label="Delayed"     value={delayed.length}  color={AMBER}  sub="Received post deadline" icon={Clock} />
+        <KpiCard label="Pending"     value={pending.length}  color={BLUE}   sub="Physical awaited" icon={HelpCircle} />
+        <KpiCard label="On Time"     value={onTime.length}   color={GREEN}  sub="Cleared &lt; 2m" icon={CheckCircle2} />
       </div>
 
-      {/* Charts row */}
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <StatusDonut cases={allCases} />
-        <DelayDistChart cases={allCases} />
+        <div className="lg:col-span-2">
+          <DelayDistChart cases={allCases} />
+        </div>
       </div>
 
-      {/* PAO chart */}
-      <div style={{ marginBottom: 24 }}>
+      {/* PAO Chart */}
+      <div>
         <PaoChart cases={allCases} />
       </div>
 
-      {/* Critical table */}
-      <div style={{ marginBottom: 24 }}>
-        <SectionLabel>🔴 Critical — EOS Passed, EPPO Not Submitted ({critical.length})</SectionLabel>
-        <CriticalTable cases={critical} />
-      </div>
-
-      {/* At Risk table */}
-      {atRisk.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <SectionLabel>🟠 At Risk — Physical Received, EPPO Not Submitted ({atRisk.length})</SectionLabel>
-          <AtRiskTable cases={atRisk} />
-        </div>
-      )}
-
-      {/* Delayed table */}
-      {delayed.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <SectionLabel>Delayed — Physical Case Received After Deadline ({delayed.length})</SectionLabel>
-          <GenericTable cases={delayed} />
-        </div>
-      )}
-
-      {/* Pending table */}
-      {pending.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <SectionLabel>Pending — File Not Yet Received ({pending.length})</SectionLabel>
-          <GenericTable cases={pending} />
-        </div>
-      )}
-
-      {/* On Time table */}
-      {onTime.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <SectionLabel>On Time ({onTime.length})</SectionLabel>
-          <GenericTable cases={onTime} />
-        </div>
-      )}
-
+      {/* Case Details Tables */}
+      <PensionCasesTable cases={critical} title="Critical Escalations — EOS Passed Without EPPO Submission" icon={AlertTriangle} badgeColor={RED} />
+      <PensionCasesTable cases={atRisk} title="At Risk Cases — Physical File Received, EPPO Filing Awaited" icon={AlertCircle} badgeColor={ORANGE} />
+      <PensionCasesTable cases={delayed} title="Delayed Cases — Physical Received After 2-Month Window" icon={Clock} badgeColor={AMBER} />
+      <PensionCasesTable cases={pending} title="Pending Cases — Physical Documents Awaited from Office" icon={HelpCircle} badgeColor={BLUE} />
+      <PensionCasesTable cases={onTime} title="On-Time Processed Cases" icon={CheckCircle2} badgeColor={GREEN} />
     </div>
   )
 }

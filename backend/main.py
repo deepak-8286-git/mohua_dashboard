@@ -22,7 +22,7 @@ app = FastAPI(title="MoHUA Dashboard API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -59,8 +59,8 @@ async def periodic_refresh():
 
 @app.on_event("startup")
 async def startup():
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, refresh_cache)
+    # Run initial sync in background thread so API server starts immediately
+    asyncio.create_task(asyncio.to_thread(refresh_cache))
     asyncio.create_task(periodic_refresh())
 
 
@@ -94,6 +94,15 @@ def get_gem():
 @app.get("/api/health")
 def health():
     return {"status": "ok", "last_updated": cache["last_updated"]}
+
+
+@app.post("/api/refresh")
+async def trigger_refresh():
+    """Trigger an immediate Drive data refresh and return updated status."""
+    log.info("Manual refresh triggered via API")
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, refresh_cache)
+    return {"status": "ok", "last_updated": cache["last_updated"], "error": cache["error"]}
 
 
 # ── Serve React frontend ───────────────────────────────────────────────────

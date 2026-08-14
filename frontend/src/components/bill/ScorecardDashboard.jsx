@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
+import { Award, Target, CheckCircle2, AlertCircle, TrendingUp, Layers } from 'lucide-react'
 
-const SLATE  = '#64748B'
+const SLATE  = '#94A3B8'
 const ALL    = '__all__'
 const BUCKETS = ['T0', 'T1', 'T2', 'T3', 'T4', 'T5', 'T5Plus']
 
@@ -23,7 +24,6 @@ function aggregateScorecard(weeksList) {
   for (const w of weeksList) {
     for (const type of ['delay_normal', 'delay_ebill']) {
       for (const p of (w[type]?.paos ?? [])) {
-        // Use sum of T-buckets (disposed bills) not total_bills_token (includes pending)
         totalBills  += BUCKETS.reduce((s, b) => s + (p[`${b}_bills`] || 0), 0)
         lt3Bills    += (p.T0_bills || 0) + (p.T1_bills || 0) + (p.T2_bills || 0)
         totalAmount += BUCKETS.reduce((s, b) => s + (p[`${b}_amount`] || 0), 0)
@@ -67,71 +67,81 @@ function aggregatePaoScores(weeksList) {
 
 // ── UI Components ─────────────────────────────────────────────────────────────
 
-function SectionDivider({ children }) {
+function SectionDivider({ children, icon: Icon }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-      <span style={{ fontSize: '0.6rem', fontFamily: 'JetBrains Mono', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#FFFFFF', fontWeight: 700, whiteSpace: 'nowrap', background: '#334155', padding: '3px 9px', borderRadius: 4 }}>{children}</span>
-      <div style={{ flex: 1, height: 1, background: '#CBD5E1' }} />
+    <div className="flex items-center gap-3 mb-3.5 select-none">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon size={14} className="text-[#F9A55A]" />}
+        <span className="section-label">{children}</span>
+      </div>
+      <div className="flex-1 h-[1px] bg-gradient-to-r from-white/10 to-transparent" />
     </div>
   )
 }
 
 function TotalScoreBanner({ score, max }) {
   const ratio  = score / max
-  const color  = ratio === 1 ? '#059669' : ratio >= 0.5 ? '#D97706' : '#DC2626'
-  const label  = ratio === 1 ? 'Full Marks' : ratio >= 0.5 ? 'Partial' : 'Below Norm'
-  const tint   = color + '1a'
+  const color  = ratio === 1 ? '#10B981' : ratio >= 0.5 ? '#F59E0B' : '#F43F5E'
+  const label  = ratio === 1 ? 'Full Target Achieved' : ratio >= 0.5 ? 'Partial Compliance' : 'Below Benchmark'
+  
   return (
-    <div style={{ background: `linear-gradient(135deg, ${tint} 0%, #FFFFFF 65%)`, border: `2px solid ${color}`, borderRadius: 16, padding: '18px 28px', display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-        <span style={{ fontFamily: 'Rajdhani', fontSize: '4rem', fontWeight: 800, color, lineHeight: 1 }}>{score}</span>
-        <span style={{ fontFamily: 'Rajdhani', fontSize: '1.8rem', fontWeight: 600, color: SLATE }}> / {max}</span>
+    <div
+      className="p-6 rounded-2xl border border-white/10 bg-gradient-to-br from-[#0F1E3C] to-[#0A1428] shadow-2xl flex items-center gap-6 shrink-0 relative overflow-hidden"
+      style={{ borderLeft: `5px solid ${color}` }}
+    >
+      <div className="flex items-baseline gap-1">
+        <span className="font-display text-6xl font-black leading-none drop-shadow-md" style={{ color }}>{score}</span>
+        <span className="font-display text-2xl font-bold text-slate-400">/{max}</span>
       </div>
       <div>
-        <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.58rem', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.1em' }}>B4 Total Score</p>
-        <p style={{ fontFamily: 'Rajdhani', fontSize: '1.2rem', fontWeight: 700, color, marginTop: 2 }}>{label}</p>
-        <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.6rem', color: SLATE, marginTop: 3 }}>Bills disposed in &lt;3 days ≥ 95%</p>
+        <p className="font-mono text-[10px] text-slate-400 uppercase tracking-widest">B4 Score Total</p>
+        <p className="font-display text-xl font-bold mt-0.5" style={{ color }}>{label}</p>
+        <p className="font-mono text-[11px] text-slate-300 mt-1 flex items-center gap-1.5">
+          <Target size={12} className="text-amber-400" />
+          Target: &ge; 95% &lt;3 Days
+        </p>
       </div>
     </div>
   )
 }
 
-function ScoreCircle({ score, max }) {
-  const color = score === max ? '#059669' : '#DC2626'
+function MetricCell({ label, value, highlightColor }) {
   return (
-    <div style={{ width: 66, height: 66, borderRadius: '50%', background: `linear-gradient(135deg, ${color}20, ${color}08)`, border: `3px solid ${color}`, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <span style={{ fontFamily: 'Rajdhani', fontSize: '1.7rem', fontWeight: 800, color, lineHeight: 1 }}>{score}</span>
-      <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.48rem', color: SLATE }}>/ {max}</span>
-    </div>
-  )
-}
-
-function MetricCell({ label, value }) {
-  return (
-    <div style={{ background: '#F8FAFC', borderRadius: 8, padding: '10px 14px' }}>
-      <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.56rem', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>{label}</p>
-      <p style={{ fontFamily: 'Rajdhani', fontSize: '1.35rem', fontWeight: 700, color: '#1E293B', lineHeight: 1 }}>{value}</p>
+    <div className="bg-slate-900/60 border border-white/5 rounded-xl p-3.5">
+      <p className="font-mono text-[10px] text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+      <p className="font-display text-2xl font-bold leading-none" style={{ color: highlightColor || '#FFFFFF' }}>
+        {value}
+      </p>
     </div>
   )
 }
 
 function B4ScoreCard({ title, totalLabel, totalValue, lt3Label, lt3Value, percentage, score, maxScore }) {
   const passed = percentage >= 95
-  const clr    = passed ? '#059669' : '#DC2626'
-  const tint   = clr + '20'
+  const clr    = passed ? '#10B981' : '#F43F5E'
+
   return (
-    <div style={{ background: `linear-gradient(145deg, ${tint} 0%, #FFFFFF 55%)`, borderRadius: 14, borderTop: `4px solid ${clr}`, padding: '20px 22px', boxShadow: '0 2px 10px rgba(0,0,0,0.09)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 }}>
-        <p style={{ fontFamily: 'Rajdhani', fontSize: '1.05rem', fontWeight: 700, color: '#1E293B', lineHeight: 1.3, flex: 1, paddingRight: 12 }}>{title}</p>
-        <ScoreCircle score={score} max={maxScore} />
+    <div className="kpi-card" style={{ '--kpi-accent': clr }}>
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <span className="text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase tracking-wider mb-1 inline-block" style={{ color: clr, background: clr + '22', border: `1px solid ${clr}44` }}>
+            {passed ? 'Target Passed (2/2)' : 'Target Lagging (0/2)'}
+          </span>
+          <p className="font-display text-base font-bold text-white leading-tight">{title}</p>
+        </div>
+
+        <div className="w-14 h-14 rounded-2xl border-2 flex flex-col items-center justify-center shadow-lg" style={{ borderColor: clr, background: clr + '15' }}>
+          <span className="font-display text-2xl font-extrabold leading-none" style={{ color: clr }}>{score}</span>
+          <span className="font-mono text-[9px] text-slate-400">/{maxScore}</span>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+      <div className="grid grid-cols-3 gap-2.5">
         <MetricCell label={totalLabel} value={totalValue} />
-        <MetricCell label={lt3Label}   value={lt3Value} />
-        <div style={{ background: clr + '18', borderRadius: 8, padding: '10px 14px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-          <p style={{ fontFamily: 'JetBrains Mono', fontSize: '0.56rem', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 5 }}>Disposal %</p>
-          <p style={{ fontFamily: 'Rajdhani', fontSize: '2rem', fontWeight: 800, color: clr, lineHeight: 1 }}>{percentage}%</p>
+        <MetricCell label={lt3Label}   value={lt3Value} highlightColor="#38BDF8" />
+        <div className="p-3.5 rounded-xl text-center flex flex-col justify-center border" style={{ background: clr + '15', borderColor: clr + '35' }}>
+          <p className="font-mono text-[10px] uppercase font-semibold text-slate-300 mb-1">Disposal Rate</p>
+          <p className="font-display text-2xl font-black leading-none" style={{ color: clr }}>{percentage}%</p>
         </div>
       </div>
     </div>
@@ -140,7 +150,7 @@ function B4ScoreCard({ title, totalLabel, totalValue, lt3Label, lt3Value, percen
 
 // ── PAO Scorecard Table ───────────────────────────────────────────────────────
 
-const GRID = '28px 1fr 84px 84px 68px 40px 110px 110px 68px 40px 52px'
+const GRID = '32px 1fr 90px 90px 75px 44px 115px 115px 75px 44px 60px'
 
 function PaoScorecardTable({ paos }) {
   const sorted = useMemo(() =>
@@ -152,69 +162,78 @@ function PaoScorecardTable({ paos }) {
   [paos])
 
   if (!sorted.length) return (
-    <p style={{ fontFamily: 'Inter', fontSize: '0.8rem', color: SLATE, textAlign: 'center', padding: '20px 0' }}>No data for this period</p>
+    <p className="font-body text-xs text-slate-400 text-center py-6">No data available for this period.</p>
   )
 
-  const subHdrs = ['#', 'PAO Name', 'Total Bills', '< 3 Days', '%', '★', 'Total Value', 'Value < 3 Days', '%', '★', 'Score']
+  const subHdrs = ['#', 'PAO Unit', 'Total Bills', '< 3 Days', 'Rate %', 'Score', 'Total Value', '< 3 Days Value', 'Rate %', 'Score', 'Total']
 
   return (
-    <div style={{ background: '#FFFFFF', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.08)', border: '1px solid #E2E8F0' }}>
-
+    <div className="table-container">
       {/* Group header */}
-      <div style={{ display: 'grid', gridTemplateColumns: '28px 1fr 356px 368px 52px', background: '#1E293B', padding: '9px 18px', alignItems: 'center' }}>
+      <div className="grid grid-cols-[32px_1fr_300px_350px_60px] bg-[#070E1C] px-4 py-2.5 border-b border-white/10 text-[11px] font-mono font-bold tracking-wider uppercase">
         <span />
-        <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>PAO</span>
-        <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.58rem', color: '#93C5FD', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>B4.1 — Number of Bills in &lt;3 Days</span>
-        <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.58rem', color: '#6EE7B7', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>B4.2 — Value of Bills in &lt;3 Days</span>
-        <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.58rem', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center' }}>Total</span>
+        <span className="text-slate-400">Unit Identification</span>
+        <span className="text-sky-300 text-center">B4.1 — Bill Count (&lt;3 Days)</span>
+        <span className="text-emerald-300 text-center">B4.2 — Value Disposed (&lt;3 Days)</span>
+        <span className="text-amber-300 text-center">Score</span>
       </div>
 
-      {/* Sub-header */}
-      <div style={{ display: 'grid', gridTemplateColumns: GRID, background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', padding: '7px 18px', alignItems: 'center' }}>
+      {/* Sub header */}
+      <div style={{ display: 'grid', gridTemplateColumns: GRID }} className="bg-[#0B152A] px-4 py-2 border-b border-white/10 text-[10px] font-mono uppercase text-slate-400">
         {subHdrs.map((h, i) => (
-          <span key={i} style={{ fontSize: '0.54rem', fontFamily: 'JetBrains Mono', color: SLATE, textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: i < 2 ? 'left' : 'right' }}>{h}</span>
+          <span key={i} className={i < 2 ? 'text-left' : 'text-right'}>{h}</span>
         ))}
       </div>
 
-      {/* Data rows */}
-      <div style={{ maxHeight: 480, overflowY: 'auto' }}>
+      {/* Table rows */}
+      <div className="max-h-[460px] overflow-y-auto divide-y divide-white/5">
         {sorted.map((p, i) => {
           const b41    = p.billsPct  >= 95 ? 2 : 0
           const b42    = p.amountPct >= 95 ? 2 : 0
           const total  = b41 + b42
-          const tColor = total === 4 ? '#059669' : total === 2 ? '#D97706' : '#DC2626'
+          const tColor = total === 4 ? '#10B981' : total === 2 ? '#F59E0B' : '#F43F5E'
 
           return (
-            <div key={p.pao_code || p.pao}
-              style={{ display: 'grid', gridTemplateColumns: GRID, padding: '9px 18px', alignItems: 'center', borderBottom: '1px solid #F1F5F9', background: i % 2 === 0 ? '#FFFFFF' : '#FAFBFC', transition: 'background 0.1s' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#F0F9FF'}
-              onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#FFFFFF' : '#FAFBFC'}
+            <div
+              key={p.pao_code || p.pao}
+              style={{ display: 'grid', gridTemplateColumns: GRID }}
+              className="px-4 py-2.5 items-center hover:bg-white/[0.04] transition-colors text-xs"
             >
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.65rem', color: '#94A3B8' }}>{i + 1}</span>
+              <span className="font-mono text-slate-400">{i + 1}</span>
 
-              <span style={{ fontFamily: 'Inter', fontSize: '0.77rem', fontWeight: 500, color: '#1E293B', paddingRight: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span className="font-body font-semibold text-slate-200 pr-2 truncate">
                 {p.pao}
               </span>
 
-              {/* B4.1 columns */}
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: SLATE, textAlign: 'right', paddingRight: 6 }}>{fmt(p.totalBills)}</span>
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: '#3B82F6', textAlign: 'right', paddingRight: 6 }}>{fmt(p.lt3Bills)}</span>
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', textAlign: 'right', paddingRight: 6, color: p.billsPct >= 95 ? '#059669' : '#DC2626', fontWeight: 600 }}>{p.billsPct}%</span>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <span style={{ fontFamily: 'Rajdhani', fontSize: '0.9rem', fontWeight: 700, color: b41 === 2 ? '#059669' : '#DC2626', background: (b41 === 2 ? '#059669' : '#DC2626') + '15', borderRadius: 4, padding: '1px 6px', minWidth: 20, textAlign: 'center' }}>{b41}</span>
+              {/* B4.1 */}
+              <span className="font-mono text-slate-400 text-right pr-2">{fmt(p.totalBills)}</span>
+              <span className="font-mono text-sky-400 text-right pr-2">{fmt(p.lt3Bills)}</span>
+              <span className={`font-mono font-semibold text-right pr-2 ${p.billsPct >= 95 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {p.billsPct}%
+              </span>
+              <div className="flex justify-end">
+                <span className="font-display font-bold px-1.5 py-0.5 rounded text-xs" style={{ color: b41 === 2 ? '#10B981' : '#F43F5E', background: (b41 === 2 ? '#10B981' : '#F43F5E') + '22' }}>
+                  {b41}
+                </span>
               </div>
 
-              {/* B4.2 columns */}
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: SLATE, textAlign: 'right', paddingRight: 6 }}>{fmtCr(p.totalAmount)}</span>
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', color: '#059669', textAlign: 'right', paddingRight: 6 }}>{fmtCr(p.lt3Amount)}</span>
-              <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.68rem', textAlign: 'right', paddingRight: 6, color: p.amountPct >= 95 ? '#059669' : '#DC2626', fontWeight: 600 }}>{p.amountPct}%</span>
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <span style={{ fontFamily: 'Rajdhani', fontSize: '0.9rem', fontWeight: 700, color: b42 === 2 ? '#059669' : '#DC2626', background: (b42 === 2 ? '#059669' : '#DC2626') + '15', borderRadius: 4, padding: '1px 6px', minWidth: 20, textAlign: 'center' }}>{b42}</span>
+              {/* B4.2 */}
+              <span className="font-mono text-slate-400 text-right pr-2">{fmtCr(p.totalAmount)}</span>
+              <span className="font-mono text-emerald-400 text-right pr-2">{fmtCr(p.lt3Amount)}</span>
+              <span className={`font-mono font-semibold text-right pr-2 ${p.amountPct >= 95 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {p.amountPct}%
+              </span>
+              <div className="flex justify-end">
+                <span className="font-display font-bold px-1.5 py-0.5 rounded text-xs" style={{ color: b42 === 2 ? '#10B981' : '#F43F5E', background: (b42 === 2 ? '#10B981' : '#F43F5E') + '22' }}>
+                  {b42}
+                </span>
               </div>
 
               {/* Total score */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <span style={{ fontFamily: 'Rajdhani', fontSize: '1rem', fontWeight: 800, color: tColor, background: tColor + '15', borderRadius: 6, padding: '2px 7px', textAlign: 'center' }}>{total}/4</span>
+              <div className="flex justify-end">
+                <span className="font-display font-extrabold text-sm px-2 py-0.5 rounded-md" style={{ color: tColor, background: tColor + '25', border: `1px solid ${tColor}44` }}>
+                  {total}/4
+                </span>
               </div>
             </div>
           )
@@ -223,8 +242,6 @@ function PaoScorecardTable({ paos }) {
     </div>
   )
 }
-
-// ── Main component ─────────────────────────────────────────────────────────────
 
 export default function ScorecardDashboard({ data }) {
   const weeks = useMemo(() => data?.weeks ?? [], [data])
@@ -251,73 +268,72 @@ export default function ScorecardDashboard({ data }) {
     [monthWeeks, selWeek]
   )
 
-  const sc       = useMemo(() => aggregateScorecard(activePeriod), [activePeriod])
+  const sc        = useMemo(() => aggregateScorecard(activePeriod), [activePeriod])
   const paoScores = useMemo(() => aggregatePaoScores(activePeriod), [activePeriod])
-  const total    = sc.b41 + sc.b42
+  const total     = sc.b41 + sc.b42
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: 24, background: '#F1F5F9' }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-        {/* Filters */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span className="filter-label">Month</span>
-            <select className="filter-select" value={selMonth}
-              onChange={e => { setSelMonth(e.target.value); setSelWeek(ALL) }}>
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {/* Filters Bar */}
+      <div className="flex items-center justify-between flex-wrap gap-4 p-4 rounded-xl glass-card">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="filter-label">Month:</span>
+            <select className="filter-select font-mono" value={selMonth} onChange={e => { setSelMonth(e.target.value); setSelWeek(ALL) }}>
               {months.map(m => <option key={m}>{m}</option>)}
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span className="filter-label">Week</span>
-            <select className="filter-select" value={selWeek} onChange={e => setSelWeek(e.target.value)}>
-              <option value={ALL}>All weeks (month total)</option>
+
+          <div className="flex items-center gap-2">
+            <span className="filter-label">Week:</span>
+            <select className="filter-select font-mono" value={selWeek} onChange={e => setSelWeek(e.target.value)}>
+              <option value={ALL}>All Weeks (Month Aggregated)</option>
               {monthWeeks.map(w => <option key={w.period} value={w.period}>{w.period}</option>)}
             </select>
           </div>
-          {selWeek === ALL && (
-            <span style={{ fontFamily: 'JetBrains Mono', fontSize: '0.7rem', color: SLATE, paddingBottom: 2 }}>
-              {monthWeeks.length} week{monthWeeks.length !== 1 ? 's' : ''} aggregated
-            </span>
-          )}
         </div>
 
-        {/* B4 score section */}
-        <div>
-          <SectionDivider>B4 — Disposal of Bills in &lt;3 Days</SectionDivider>
-          <div style={{ display: 'flex', gap: 20, alignItems: 'stretch' }}>
-            <TotalScoreBanner score={total} max={4} />
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <B4ScoreCard
-                title="Number of Bills disposed in < 3 days (T0 + T1 + T2)"
-                totalLabel="Total Bills Disposed"
-                totalValue={fmt(sc.totalBills)}
-                lt3Label="Bills in < 3 Days"
-                lt3Value={fmt(sc.lt3Bills)}
-                percentage={sc.billsPct}
-                score={sc.b41}
-                maxScore={2}
-              />
-              <B4ScoreCard
-                title="Value of Bills disposed in < 3 days (T0 + T1 + T2)"
-                totalLabel="Total Value Disposed"
-                totalValue={fmtCr(sc.totalAmount)}
-                lt3Label="Value in < 3 Days"
-                lt3Value={fmtCr(sc.lt3Amount)}
-                percentage={sc.amountPct}
-                score={sc.b42}
-                maxScore={2}
-              />
-            </div>
+        {selWeek === ALL && (
+          <span className="font-mono text-xs text-slate-400 bg-slate-900/60 px-3 py-1.5 rounded-lg border border-white/5">
+            {monthWeeks.length} week{monthWeeks.length !== 1 ? 's' : ''} aggregated
+          </span>
+        )}
+      </div>
+
+      {/* B4 Score Overview */}
+      <div>
+        <SectionDivider icon={Award}>B4 Milestone — Disposal of Bills in &lt; 3 Days</SectionDivider>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+          <TotalScoreBanner score={total} max={4} />
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <B4ScoreCard
+              title="B4.1: Volume Disposed &lt; 3 Days"
+              totalLabel="Total Bills Disposed"
+              totalValue={fmt(sc.totalBills)}
+              lt3Label="Disposed < 3 Days"
+              lt3Value={fmt(sc.lt3Bills)}
+              percentage={sc.billsPct}
+              score={sc.b41}
+              maxScore={2}
+            />
+            <B4ScoreCard
+              title="B4.2: Amount Disposed &lt; 3 Days"
+              totalLabel="Total Amount Disposed"
+              totalValue={fmtCr(sc.totalAmount)}
+              lt3Label="Disposed < 3 Days"
+              lt3Value={fmtCr(sc.lt3Amount)}
+              percentage={sc.amountPct}
+              score={sc.b42}
+              maxScore={2}
+            />
           </div>
         </div>
+      </div>
 
-        {/* PAO-wise scorecard */}
-        <div>
-          <SectionDivider>PAO-wise Scorecard</SectionDivider>
-          <PaoScorecardTable paos={paoScores} />
-        </div>
-
+      {/* PAO-Wise Scorecard Table */}
+      <div>
+        <SectionDivider icon={Layers}>PAO-Wise Scorecard League Table</SectionDivider>
+        <PaoScorecardTable paos={paoScores} />
       </div>
     </div>
   )
